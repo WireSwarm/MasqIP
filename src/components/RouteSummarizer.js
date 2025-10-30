@@ -7,29 +7,48 @@ import {
 
 const MAX_ROUTE_FIELDS = 24;
 
+// Design agent: Normalises network inputs so only one trailing empty field remains.
+const normaliseRouteFields = (values) => {
+  const normalised = [];
+  let hasTrailingEmpty = false;
+
+  for (const value of values) {
+    if (value.trim() === '') {
+      if (!hasTrailingEmpty) {
+        normalised.push('');
+        hasTrailingEmpty = true;
+      }
+    } else {
+      normalised.push(value);
+      hasTrailingEmpty = false;
+    }
+    if (normalised.length === MAX_ROUTE_FIELDS) {
+      break;
+    }
+  }
+
+  if (!hasTrailingEmpty && normalised.length < MAX_ROUTE_FIELDS) {
+    normalised.push('');
+  }
+
+  return normalised;
+};
+
 // Design agent: Implements the live IPv4 route summarization helper with dynamic inputs.
 function RouteSummarizer() {
   const [routes, setRoutes] = useState(['']);
   const inputRefs = useRef([]);
 
-  // Design agent: Ensures there is an empty trailing field available for additional input.
-  const ensureTrailingField = (index, shouldFocus) => {
-    let appended = false;
-    setRoutes((prev) => {
-      if (index !== prev.length - 1) {
-        return prev;
+  // Design agent: Focuses a specific network field and places the caret at the end.
+  const focusRouteField = (index) => {
+    queueMicrotask(() => {
+      const element = inputRefs.current[index];
+      if (element) {
+        const length = element.value.length;
+        element.focus();
+        element.setSelectionRange(length, length);
       }
-      if (prev[index].trim() === '' || prev.length >= MAX_ROUTE_FIELDS) {
-        return prev;
-      }
-      appended = true;
-      return [...prev, ''];
     });
-    if (appended && shouldFocus) {
-      queueMicrotask(() => {
-        inputRefs.current[index + 1]?.focus();
-      });
-    }
   };
 
   // Design agent: Calculates the aggregated summary prefix from all entered networks.
@@ -76,14 +95,7 @@ function RouteSummarizer() {
     setRoutes((prev) => {
       const next = [...prev];
       next[index] = value;
-      if (index === prev.length - 1 && value.trim() !== '' && prev.length < MAX_ROUTE_FIELDS) {
-        next.push('');
-        queueMicrotask(() => {
-          const nextIndex = index + 1;
-          inputRefs.current[nextIndex]?.focus();
-        });
-      }
-      return next;
+      return normaliseRouteFields(next);
     });
   };
 
@@ -91,9 +103,21 @@ function RouteSummarizer() {
   const handleKeyDown = (event, index) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      ensureTrailingField(index, true);
       const nextIndex = Math.min(index + 1, routes.length - 1);
-      inputRefs.current[nextIndex]?.focus();
+      focusRouteField(nextIndex);
+      return;
+    }
+
+    if (event.key === 'Backspace' && routes[index].trim() === '' && index > 0) {
+      event.preventDefault();
+      const targetIndex = index - 1;
+      setRoutes((prev) => {
+        const next = [...prev];
+        const previousValue = next[targetIndex] ?? '';
+        next[targetIndex] = previousValue.slice(0, -1);
+        return normaliseRouteFields(next);
+      });
+      focusRouteField(targetIndex);
     }
   };
 
@@ -113,7 +137,6 @@ function RouteSummarizer() {
               className="field-input"
               onChange={(event) => handleRouteChange(index, event.target.value)}
               onKeyDown={(event) => handleKeyDown(event, index)}
-              onBlur={() => ensureTrailingField(index, false)}
             />
           </label>
         ))}

@@ -160,6 +160,11 @@
   text-align: center;
 }
 
+.count-input {
+  flex: 0 0 120px;
+  max-width: 140px;
+}
+
 .multi-field .field-row {
   align-items: stretch;
 }
@@ -212,6 +217,13 @@
   padding: 0.65rem 1.25rem;
   cursor: pointer;
   transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.expand-button {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  padding: 0.4rem 1rem;
+  letter-spacing: 0.06em;
 }
 
 .accent-button {
@@ -325,7 +337,7 @@
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(31, 34, 53, 0.9), rgba(12, 14, 26, 0.75));
   border: 1px solid rgba(140, 123, 255, 0.22);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .progress-gradient {
@@ -396,6 +408,75 @@
   color: rgba(232, 234, 255, 0.58);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.progress-host-label {
+  position: absolute;
+  top: 50%;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.progress-host-label--left {
+  transform: translate(-118%, -165%);
+  text-align: right;
+}
+
+.progress-host-label--right {
+  transform: translate(18%, -165%);
+}
+
+.cidr-display {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-weight: 700;
+  color: rgba(244, 246, 255, 0.92);
+}
+
+.cidr-prefix {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(232, 234, 255, 0.6);
+}
+
+.cidr-octets {
+  display: inline-flex;
+  gap: 0.05rem;
+  font-size: 1.1rem;
+}
+
+.cidr-segment {
+  display: inline-block;
+}
+
+.cidr-separator {
+  margin: 0 0.2rem;
+  font-size: 1rem;
+  color: rgba(232, 234, 255, 0.45);
+}
+
+.endpoint {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.05rem;
+}
+
+.endpoint--right {
+  justify-content: flex-end;
+}
+
+.binary-octet {
+  font-family: 'Fira Code', 'SFMono-Regular', ui-monospace, Menlo, monospace;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
 }
 
 .insight-grid {
@@ -434,4 +515,3 @@
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 }
-

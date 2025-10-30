@@ -10,22 +10,10 @@ import {
   parseCidr,
 } from '../utils/ipMath';
 
-// Design agent: Returns the octets that differ between two IPv4 addresses.
-const getDifferingOctets = (a, b) => {
-  const octetsA = a.split('.');
-  const octetsB = b.split('.');
-  return octetsA
-    .map((value, index) => (value === octetsB[index] ? null : value))
-    .filter((value) => value !== null);
-};
-
-// Design agent: Formats a friendly label showing only significant trailing octets.
-const formatCompactOctetLabel = (base, target) => {
-  const differing = getDifferingOctets(base, target);
-  if (differing.length === 0) {
-    return base.split('.').pop();
-  }
-  return differing.join('.');
+// Design agent: Defines the chromatic palette used for network and host highlights.
+const INSPECTOR_COLORS = {
+  network: '#4F46E5',
+  host: '#F97316',
 };
 
 // Design agent: Computes contiguous free ranges around the inspected IP.
@@ -38,6 +26,85 @@ const computeFreeSegments = (ipInt, usableStart, usableEnd) => {
     left: Math.max(0, clampedIp - usableStart),
     right: Math.max(0, usableEnd - clampedIp),
   };
+};
+
+// Design agent: Builds a colour-aware description for each octet of an address.
+const buildColorisedOctets = (address, prefix, colors) => {
+  const octets = address.split('.');
+  const fullNetworkOctets = Math.floor(prefix / 8);
+  const partialBits = prefix % 8;
+  const gradientStop = partialBits === 0 ? 0 : (partialBits / 8) * 100;
+
+  return octets.flatMap((octet, index) => {
+    const segments = [];
+    if (index < fullNetworkOctets) {
+      segments.push({
+        key: `octet-${index}`,
+        value: octet,
+        style: { color: colors.network },
+        role: 'network',
+      });
+    } else if (index === fullNetworkOctets && partialBits > 0) {
+      segments.push({
+        key: `octet-${index}`,
+        value: octet,
+        style: {
+          backgroundImage: `linear-gradient(90deg, ${colors.network} ${gradientStop}%, ${colors.host} ${gradientStop}%)`,
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          color: 'transparent',
+          WebkitTextFillColor: 'transparent',
+        },
+        role: 'mixed',
+      });
+    } else {
+      segments.push({
+        key: `octet-${index}`,
+        value: octet,
+        style: { color: colors.host },
+        role: 'host',
+      });
+    }
+
+    if (index < octets.length - 1) {
+      segments.push({
+        key: `dot-${index}`,
+        value: '.',
+        style: { color: 'inherit' },
+        role: 'separator',
+      });
+    }
+    return segments;
+  });
+};
+
+// Design agent: Produces colour details for the boundary octet when it is split by the mask.
+const buildBoundaryBinary = (address, prefix, colors) => {
+  const partialBits = prefix % 8;
+  if (partialBits === 0) {
+    return null;
+  }
+  const boundaryOctetIndex = Math.floor(prefix / 8);
+  const octetValue = Number(address.split('.')[boundaryOctetIndex]);
+  const binary = octetValue.toString(2).padStart(8, '0');
+  return {
+    networkBits: binary.slice(0, partialBits),
+    hostBits: binary.slice(partialBits),
+    colors,
+  };
+};
+
+// Design agent: Extracts the host portion label for an address relative to the network prefix.
+const getHostPortionLabel = (addressInt, baseNetwork, prefix) => {
+  const hostBits = 32 - prefix;
+  if (hostBits <= 0) {
+    return '0';
+  }
+  const offset = addressInt - baseNetwork;
+  const hostOctets = intToIpv4(offset).split('.');
+  const hostStart = Math.floor(prefix / 8);
+  const portion = hostOctets.slice(hostStart).join('.');
+  return portion === '' ? '0' : portion;
 };
 
 // Design agent: Component exposing IPv4 insights and the interactive progress visualisation.
@@ -71,6 +138,13 @@ function IpInspector() {
     const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
     const freeSegments = computeFreeSegments(ipInt, hostRangeStart, hostRangeEnd);
 
+    const colorisedIp = buildColorisedOctets(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
+    const networkDisplay = buildColorisedOctets(intToIpv4(parsed.network), parsed.prefix, INSPECTOR_COLORS);
+    const broadcastDisplay = buildColorisedOctets(intToIpv4(parsed.broadcast), parsed.prefix, INSPECTOR_COLORS);
+    const boundaryBinary = buildBoundaryBinary(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
+    const hostPortionNetwork = getHostPortionLabel(parsed.network, parsed.network, parsed.prefix);
+    const hostPortionBroadcast = getHostPortionLabel(parsed.broadcast, parsed.network, parsed.prefix);
+
     return {
       parsed,
       prefix: parsed.prefix,
@@ -81,12 +155,17 @@ function IpInspector() {
       progress: Math.max(0, Math.min(progress, 100)),
       networkAddress: intToIpv4(parsed.network),
       broadcastAddress: intToIpv4(parsed.broadcast),
-      networkEndpoint: formatCompactOctetLabel(parsed.ip, intToIpv4(parsed.network)),
-      broadcastEndpoint: formatCompactOctetLabel(parsed.ip, intToIpv4(parsed.broadcast)),
       currentOctet: parsed.ip.split('.').pop(),
       leftUsable: freeSegments.left,
       rightUsable: freeSegments.right,
       inspectedIp: parsed.ip,
+      colorisedIp,
+      networkDisplay,
+      broadcastDisplay,
+      boundaryBinary,
+      hostPortionNetwork,
+      hostPortionBroadcast,
+      colors: INSPECTOR_COLORS,
     };
   }, [input]);
 
@@ -122,7 +201,18 @@ function IpInspector() {
         {analysis.prompt && <p className="result-summary">{analysis.prompt}</p>}
         {analysis.parsed && (
           <>
-            <p className="result-summary">Inspecting {analysis.inspectedIp}/{analysis.prefix}</p>
+            <div className="cidr-display" aria-label="Inspected address">
+              <span className="cidr-prefix">Inspecting</span>
+              <span className="cidr-octets">
+                {analysis.colorisedIp.map((segment) => (
+                  <span key={segment.key} className="cidr-segment" style={segment.style}>
+                    {segment.value}
+                  </span>
+                ))}
+              </span>
+              <span className="cidr-separator">/</span>
+              <span className="cidr-segment" style={{ color: analysis.colors.network }}>{analysis.prefix}</span>
+            </div>
 
             <div className="progress-wrapper">
               <div
@@ -130,6 +220,15 @@ function IpInspector() {
                 onMouseEnter={handleProgressEnter}
                 onMouseLeave={handleProgressLeave}
               >
+                <span
+                  className="progress-host-label progress-host-label--left"
+                  style={{
+                    color: analysis.colors.host,
+                    left: `${analysis.progress}%`,
+                  }}
+                >
+                  {analysis.hostPortionNetwork}
+                </span>
                 <div
                   className="progress-gradient"
                   style={{ width: `${analysis.progress}%` }}
@@ -150,10 +249,35 @@ function IpInspector() {
                   )}
                   <span>{analysis.currentOctet}</span>
                 </div>
+                <span
+                  className="progress-host-label progress-host-label--right"
+                  style={{
+                    color: analysis.colors.host,
+                    left: `${analysis.progress}%`,
+                  }}
+                >
+                  {analysis.hostPortionBroadcast}
+                </span>
               </div>
               <div className="progress-extents">
-                <span>{analysis.networkEndpoint}</span>
-                <span>{analysis.broadcastEndpoint}</span>
+                <span className="endpoint">
+                  {analysis.networkDisplay.map((segment) => (
+                    <span key={`net-${segment.key}`} className="cidr-segment" style={segment.style}>
+                      {segment.value}
+                    </span>
+                  ))}
+                  <span className="cidr-separator">/</span>
+                  <span className="cidr-segment" style={{ color: analysis.colors.network }}>
+                    {analysis.prefix}
+                  </span>
+                </span>
+                <span className="endpoint endpoint--right">
+                  {analysis.broadcastDisplay.map((segment) => (
+                    <span key={`brd-${segment.key}`} className="cidr-segment" style={segment.style}>
+                      {segment.value}
+                    </span>
+                  ))}
+                </span>
               </div>
             </div>
 
@@ -182,6 +306,15 @@ function IpInspector() {
                 <p className="insight-title">Class</p>
                 <p>{analysis.ipClass}</p>
               </div>
+              {analysis.boundaryBinary && (
+                <div>
+                  <p className="insight-title">Boundary octet</p>
+                  <p className="binary-octet">
+                    <span style={{ color: analysis.colors.network }}>{analysis.boundaryBinary.networkBits}</span>
+                    <span style={{ color: analysis.colors.host }}>{analysis.boundaryBinary.hostBits}</span>
+                  </p>
+                </div>
+              )}
             </div>
           </>
         )}

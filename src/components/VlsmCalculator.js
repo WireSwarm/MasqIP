@@ -11,6 +11,35 @@ import {
 const MAX_SUBNET_FIELDS = 16;
 const MAX_MULTIPLIER = 64;
 
+// Design agent: Normalises subnet rows to keep a single empty trailing entry with defaults.
+const normaliseHostRows = (rows) => {
+  const normalised = [];
+  let hasTrailingEmpty = false;
+
+  for (const row of rows) {
+    const trimmedHosts = row.hosts.trim();
+    const multiplier = row.multiplier.trim() === '' ? '1' : row.multiplier;
+    if (trimmedHosts === '') {
+      if (!hasTrailingEmpty) {
+        normalised.push({ hosts: '', multiplier: '1' });
+        hasTrailingEmpty = true;
+      }
+    } else {
+      normalised.push({ hosts: row.hosts, multiplier });
+      hasTrailingEmpty = false;
+    }
+    if (normalised.length === MAX_SUBNET_FIELDS) {
+      break;
+    }
+  }
+
+  if (!hasTrailingEmpty && normalised.length < MAX_SUBNET_FIELDS) {
+    normalised.push({ hosts: '', multiplier: '1' });
+  }
+
+  return normalised;
+};
+
 // Design agent: Computes the minimum bit width needed to cover a numerical count.
 const bitsForCount = (count) => {
   if (count <= 1) {
@@ -107,7 +136,20 @@ function VlsmCalculator() {
     { label: 'Floor', count: '' },
   ]);
   const [leafSize, setLeafSize] = useState('');
+  const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
+
+  // Design agent: Focuses a subnet host field and places the caret at the end.
+  const focusHostField = (index) => {
+    queueMicrotask(() => {
+      const element = inputRefs.current[index];
+      if (element) {
+        const length = element.value.length;
+        element.focus();
+        element.setSelectionRange(length, length);
+      }
+    });
+  };
 
   // Design agent: Computes addressing plans for method 1 (host-driven VLSM).
   const methodOneResults = useMemo(() => {
@@ -311,32 +353,23 @@ function VlsmCalculator() {
     setMode(nextMode);
   };
 
-  // Design agent: Ensures there is always an empty trailing subnet field when needed.
-  const appendFieldIfNeeded = (index, focusNext) => {
-    let appended = false;
-    setHostInputs((prev) => {
-      if (index !== prev.length - 1) {
-        return prev;
-      }
-      if (prev[index].hosts.trim() === '' || prev.length >= MAX_SUBNET_FIELDS) {
-        return prev;
-      }
-      appended = true;
-      return [...prev, { hosts: '', multiplier: '1' }];
-    });
-    if (appended && focusNext) {
-      queueMicrotask(() => {
-        inputRefs.current[index + 1]?.focus();
-      });
-    }
-  };
-
   // Design agent: Stores edits for host counts and multipliers.
   const handleHostChange = (index, field, value) => {
     setHostInputs((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
-      return next;
+      const safeValue = field === 'multiplier' && value.trim() === '' ? '' : value;
+      next[index] = { ...next[index], [field]: safeValue };
+      return normaliseHostRows(next);
+    });
+  };
+
+  // Design agent: Toggles whether a subnet group's allocations are expanded.
+  const toggleGroupExpansion = (index) => {
+    setExpandedGroups((prev) => {
+      if (prev.includes(index)) {
+        return prev.filter((value) => value !== index);
+      }
+      return [...prev, index];
     });
   };
 
@@ -344,9 +377,24 @@ function VlsmCalculator() {
   const handleKeyDown = (event, index) => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      appendFieldIfNeeded(index, true);
       const nextIndex = Math.min(index + 1, hostInputs.length - 1);
-      inputRefs.current[nextIndex]?.focus();
+      focusHostField(nextIndex);
+      return;
+    }
+
+    if (event.key === 'Backspace' && hostInputs[index].hosts === '' && index > 0) {
+      event.preventDefault();
+      const previousIndex = index - 1;
+      setHostInputs((prev) => {
+        const next = [...prev];
+        const previousRow = next[previousIndex] ?? { hosts: '', multiplier: '1' };
+        next[previousIndex] = {
+          ...previousRow,
+          hosts: previousRow.hosts.slice(0, -1),
+        };
+        return normaliseHostRows(next);
+      });
+      focusHostField(previousIndex);
     }
   };
 
@@ -439,7 +487,6 @@ function VlsmCalculator() {
                       handleHostChange(index, 'hosts', event.target.value.replace(/[^\d]/g, ''))
                     }
                     onKeyDown={(event) => handleKeyDown(event, index)}
-                    onBlur={() => appendFieldIfNeeded(index, false)}
                   />
                   <input
                     value={entry.multiplier}
@@ -475,28 +522,48 @@ function VlsmCalculator() {
                 <ul className="result-list">
                   {methodOneResults.groups.map((group, index) => (
                     <li key={index} className="result-item">
-                      {group.allocations.length > 0 ? (
-                        <>
-                          <span className="result-title">
-                            Subnet group {index + 1} ({group.allocations.length}×)
-                          </span>
-                          <ul className="result-sublist">
-                            {group.allocations.map((allocation, instanceIndex) => (
-                              <li key={instanceIndex} className="result-subitem">
-                                <span className="result-title">
-                                  Plan {instanceIndex + 1}: {intToIpv4(allocation.network)}/{allocation.prefix}
-                                </span>
-                                <span className="result-meta">
-                                  Range {intToIpv4(allocation.network)} – {intToIpv4(allocation.broadcast)} · mask{' '}
-                                  {formatMask(maskFromPrefix(allocation.prefix))}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </>
-                      ) : (
-                        <span className="result-title muted">Awaiting size…</span>
-                      )}
+                      {(() => {
+                        const allocations = group.allocations;
+                        const isExpanded = expandedGroups.includes(index);
+                        const visibleAllocations = isExpanded ? allocations : allocations.slice(0, 4);
+                        const hasHiddenAllocations = allocations.length > visibleAllocations.length;
+
+                        if (allocations.length === 0) {
+                          return <span className="result-title muted">Awaiting size…</span>;
+                        }
+
+                        return (
+                          <>
+                            <span className="result-title">
+                              Subnet group {index + 1} ({allocations.length}×)
+                            </span>
+                            <ul className="result-sublist">
+                              {visibleAllocations.map((allocation, instanceIndex) => (
+                                <li key={instanceIndex} className="result-subitem">
+                                  <span className="result-title">
+                                    Plan {instanceIndex + 1}: {intToIpv4(allocation.network)}/{allocation.prefix}
+                                  </span>
+                                  <span className="result-meta">
+                                    Range {intToIpv4(allocation.network)} – {intToIpv4(allocation.broadcast)} · mask{' '}
+                                    {formatMask(maskFromPrefix(allocation.prefix))}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                            {hasHiddenAllocations && (
+                              <button
+                                type="button"
+                                className="ghost-button expand-button"
+                                onClick={() => toggleGroupExpansion(index)}
+                              >
+                                {isExpanded
+                                  ? 'Show fewer plans'
+                                  : `Show all ${allocations.length.toLocaleString()} plans`}
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
                     </li>
                   ))}
                 </ul>
@@ -534,7 +601,7 @@ function VlsmCalculator() {
                     inputMode="numeric"
                     pattern="\d*"
                     placeholder="Count"
-                    className="field-input"
+                    className="field-input count-input"
                     onChange={(event) =>
                       handleLevelChange(index, 'count', event.target.value.replace(/[^\d]/g, ''))
                     }
@@ -613,4 +680,3 @@ function VlsmCalculator() {
 }
 
 export default VlsmCalculator;
-

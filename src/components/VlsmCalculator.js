@@ -178,7 +178,8 @@ function VlsmCalculator() {
       { label: 'Floor', count: '1' },
     ]),
   );
-  const [leafSize, setLeafSize] = useState('256');
+  // Design agent: Leaves the leaf size input visually empty while defaulting to 256 internally.
+  const [leafSize, setLeafSize] = useState('');
   const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
 

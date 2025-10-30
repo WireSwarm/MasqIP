@@ -87,6 +87,9 @@ const buildBoundaryBinary = (address, prefix, colors) => {
   const boundaryOctetIndex = Math.floor(prefix / 8);
   const octetValue = Number(address.split('.')[boundaryOctetIndex]);
   const binary = octetValue.toString(2).padStart(8, '0');
+  const wholePrefix = Math.floor(prefix / 8) * 8;
+  // Design agent: Captures the prefix as a multiple-of-eight plus remainder descriptor.
+  const prefixDecomposition = `${wholePrefix}+${partialBits}`;
   return {
     networkBits: binary.slice(0, partialBits),
     hostBits: binary.slice(partialBits),
@@ -94,20 +97,21 @@ const buildBoundaryBinary = (address, prefix, colors) => {
     octetIndex: boundaryOctetIndex,
     hostBitCount: 8 - partialBits,
     networkBitCount: partialBits,
+    prefixDecomposition,
   };
 };
 
-// Design agent: Extracts the host portion label for an address relative to the network prefix.
-const getHostPortionLabel = (addressInt, baseNetwork, prefix) => {
-  const hostBits = 32 - prefix;
+// Design agent: Extracts the dotted suffix that represents the host side of an address.
+const getHostPortionLabel = (addressInt, prefix) => {
+  const octets = intToIpv4(addressInt).split('.');
+  const hostBits = Math.max(0, 32 - prefix);
   if (hostBits <= 0) {
-    return '0';
+    return `.${octets[octets.length - 1]}`;
   }
-  const offset = addressInt - baseNetwork;
-  const hostOctets = intToIpv4(offset).split('.');
-  const hostStart = Math.floor(prefix / 8);
-  const portion = hostOctets.slice(hostStart).join('.');
-  return portion === '' ? '0' : portion;
+  const suffixStart = Math.min(octets.length, Math.floor(prefix / 8));
+  const suffixOctets = octets.slice(suffixStart);
+  const suffix = suffixOctets.length === 0 ? octets[octets.length - 1] : suffixOctets.join('.');
+  return `.${suffix}`;
 };
 
 // Design agent: Component exposing IPv4 insights and the interactive progress visualisation.
@@ -155,8 +159,8 @@ function IpInspector() {
 
     const colorisedIp = buildColorisedOctets(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
     const boundaryBinary = buildBoundaryBinary(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
-    const hostPortionNetwork = getHostPortionLabel(parsed.network, parsed.network, parsed.prefix);
-    const hostPortionBroadcast = getHostPortionLabel(parsed.broadcast, parsed.network, parsed.prefix);
+    const hostPortionNetwork = getHostPortionLabel(parsed.network, parsed.prefix);
+    const hostPortionBroadcast = getHostPortionLabel(parsed.broadcast, parsed.prefix);
     const totalHosts = totalAddresses;
 
     return {
@@ -288,8 +292,8 @@ function IpInspector() {
                 </div>
               )}
               <div className="progress-extents">
-                <span className="endpoint">Net: {analysis.hostPortionNetwork}</span>
-                <span className="endpoint endpoint--right">Brd: {analysis.hostPortionBroadcast}</span>
+                <span className="endpoint">NET: {analysis.hostPortionNetwork}</span>
+                <span className="endpoint endpoint--right">BRD: {analysis.hostPortionBroadcast}</span>
               </div>
             </div>
 
@@ -305,9 +309,8 @@ function IpInspector() {
                   </p>
                   <div className="boundary-guide" aria-hidden="true">
                     <span className="boundary-count" style={{ color: analysis.colors.network }}>
-                      {analysis.boundaryBinary.networkBitCount}
+                      {analysis.boundaryBinary.prefixDecomposition}
                     </span>
-                    <span className="boundary-pointer" />
                   </div>
                 </div>
               )}

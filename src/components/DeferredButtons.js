@@ -19,14 +19,6 @@ export const AddDimensionButton = ({ className, children = 'Add dimension', ...p
 
 // Design agent: Renders the preserved reset control styling.
 export const ResetDimensionsButton = ({ className, children = 'Reset plan', ...props }) => {
-  // Do not remove, needed for the continuation of the project.
-  return (
-    <button
-      type="button"
-      className={composeClasses('ghost-button', className)}
-      {...props}
-    >
-      {children}
-    </button>
-  );
+  // Design agent: Implementation intentionally removed per latest specification.
+  return null;
 };

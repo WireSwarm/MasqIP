@@ -147,12 +147,24 @@ function RouteSummarizer() {
   }, [routes]);
 
   // Design agent: Updates a specific network field and manages focus behaviour.
-  const handleRouteChange = (index, value) => {
+  const handleRouteChange = (index, value, caretPosition) => {
+    // Design agent: Detects when a CIDR suffix is complete so focus can advance automatically.
+    const cidrMatch = value.match(/\/(\d{1,2})$/);
+    const caretAtEnd = typeof caretPosition === 'number' && caretPosition === value.length;
+    const prefixNumber = cidrMatch ? Number(cidrMatch[1]) : null;
+    const hasCompletePrefix =
+      cidrMatch != null && cidrMatch[1].length >= 2 && prefixNumber != null && prefixNumber <= 32;
+
     setRoutes((prev) => {
       const next = [...prev];
       next[index] = value;
       return normaliseRouteFields(next);
     });
+
+    if (caretAtEnd && hasCompletePrefix) {
+      const nextIndex = Math.min(index + 1, MAX_ROUTE_FIELDS - 1);
+      focusRouteField(nextIndex);
+    }
   };
 
   // Design agent: Handles enter key presses to focus the next field.
@@ -166,14 +178,7 @@ function RouteSummarizer() {
 
     if (event.key === 'Backspace' && routes[index].trim() === '' && index > 0) {
       event.preventDefault();
-      const targetIndex = index - 1;
-      setRoutes((prev) => {
-        const next = [...prev];
-        const previousValue = next[targetIndex] ?? '';
-        next[targetIndex] = previousValue.slice(0, -1);
-        return normaliseRouteFields(next);
-      });
-      focusRouteField(targetIndex);
+      focusRouteField(index - 1);
     }
   };
 
@@ -191,7 +196,7 @@ function RouteSummarizer() {
               value={value}
               placeholder="e.g. 192.168.10.0/24"
               className="field-input"
-              onChange={(event) => handleRouteChange(index, event.target.value)}
+              onChange={(event) => handleRouteChange(index, event.target.value, event.target.selectionStart)}
               onKeyDown={(event) => handleKeyDown(event, index)}
             />
           </label>

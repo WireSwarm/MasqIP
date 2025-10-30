@@ -33,7 +33,6 @@ const buildColorisedOctets = (address, prefix, colors) => {
   const octets = address.split('.');
   const fullNetworkOctets = Math.floor(prefix / 8);
   const partialBits = prefix % 8;
-  const gradientStop = partialBits === 0 ? 0 : (partialBits / 8) * 100;
 
   return octets.flatMap((octet, index) => {
     const segments = [];
@@ -48,13 +47,7 @@ const buildColorisedOctets = (address, prefix, colors) => {
       segments.push({
         key: `octet-${index}`,
         value: octet,
-        style: {
-          backgroundImage: `linear-gradient(90deg, ${colors.network} ${gradientStop}%, ${colors.host} ${gradientStop}%)`,
-          backgroundClip: 'text',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
-          WebkitTextFillColor: 'transparent',
-        },
+        style: { color: colors.network },
         role: 'mixed',
       });
     } else {
@@ -255,7 +248,12 @@ function IpInspector() {
               <span className="cidr-prefix">Inspecting</span>
               <span className="cidr-octets">
                 {analysis.colorisedIp.map((segment) => (
-                  <span key={segment.key} className="cidr-segment" style={segment.style}>
+                  <span
+                    key={segment.key}
+                    className="cidr-segment"
+                    style={segment.style}
+                    data-role={segment.role}
+                  >
                     {segment.value}
                   </span>
                 ))}

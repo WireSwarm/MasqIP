@@ -8,8 +8,6 @@ const LAYER_COLORS = [
   'var(--layer-color-c)',
   'var(--layer-color-d)',
 ];
-const HOST_COLOR = 'var(--layer-host-color)';
-
 // Design agent: Converts a CIDR prefix into a percentage along the slider track.
 const prefixToPercent = (prefix, supernetPrefix) => {
   const range = Math.max(0.0001, TRACK_MAX_PREFIX - supernetPrefix);
@@ -57,46 +55,11 @@ function HierarchicalSlider({
     return [...magnets].sort((a, b) => a - b);
   }, [magnets]);
 
-  // Design agent: Precomputes slider segments for painting the gradient track.
-  const trackStyle = useMemo(() => {
-    if (!handles || handles.length === 0) {
-      return { background: HOST_COLOR };
-    }
-
-    const sortedHandles = [...handles].sort((a, b) => a.prefix - b.prefix);
-    const range = Math.max(0.0001, TRACK_MAX_PREFIX - supernetPrefix);
-    const stops = [];
-    let cursor = 0;
-    let previousPrefix = supernetPrefix;
-
-    sortedHandles.forEach((handle, index) => {
-      const paintPrefix = resolvePaintPrefix(handle, dragState, supernetPrefix);
-      const boundedPrefix = Math.min(TRACK_MAX_PREFIX, Math.max(previousPrefix, paintPrefix));
-      const span = Math.max(0, boundedPrefix - previousPrefix);
-      const width = (span / range) * 100;
-      const colour = LAYER_COLORS[index % LAYER_COLORS.length];
-      const start = Math.min(100, cursor);
-      const end = Math.min(100, cursor + width);
-      stops.push(`${colour} ${start}%`, `${colour} ${end}%`);
-      cursor = end;
-      previousPrefix = boundedPrefix;
-    });
-
-    const remainderSpan = Math.max(0, TRACK_MAX_PREFIX - previousPrefix);
-    const remainderWidth = (remainderSpan / range) * 100;
-    const remainderStart = Math.min(100, cursor);
-    const remainderEnd = Math.min(100, cursor + remainderWidth);
-    stops.push(`${HOST_COLOR} ${remainderStart}%`, `${HOST_COLOR} ${remainderEnd}%`);
-
-    return {
-      background: `linear-gradient(90deg, ${stops.join(', ')})`,
-    };
-  }, [dragState, handles, supernetPrefix]);
-
   // Design agent: Builds logical segments so the hover tooltip can expose network and host counts.
   const segmentMetrics = useMemo(() => {
     const range = Math.max(0.0001, TRACK_MAX_PREFIX - supernetPrefix);
     const segments = [];
+    const paintSegments = [];
     const sorted = [...handles].sort((a, b) => a.prefix - b.prefix);
     let previousPrefix = supernetPrefix;
     let previousPercent = 0;
@@ -106,13 +69,24 @@ function HierarchicalSlider({
       const boundedPrefix = Math.min(TRACK_MAX_PREFIX, Math.max(previousPrefix, paintPrefix));
       const bits = Math.max(0, boundedPrefix - previousPrefix);
       const nextPercent = Math.max(previousPercent, ((boundedPrefix - supernetPrefix) / range) * 100);
+      const rawLabel = handle.label ? handle.label.trim() : '';
+      const label = rawLabel !== '' ? rawLabel : `Layer ${index + 1}`;
+      const segmentStart = previousPercent;
+      const segmentEnd = Math.min(100, nextPercent);
       segments.push({
         type: 'layer',
         id: handle.id,
         index,
+        label,
         startPercent: previousPercent,
-        endPercent: Math.min(100, nextPercent),
+        endPercent: segmentEnd,
         networkCount: Math.max(1, 2 ** bits),
+      });
+      paintSegments.push({
+        id: handle.id,
+        color: LAYER_COLORS[index % LAYER_COLORS.length],
+        startPercent: segmentStart,
+        endPercent: segmentEnd,
       });
       previousPrefix = boundedPrefix;
       previousPercent = nextPercent;
@@ -127,7 +101,7 @@ function HierarchicalSlider({
       hostAddresses,
     });
 
-    return { range, segments };
+    return { range, segments, paintSegments };
   }, [dragState, handles, supernetPrefix]);
 
   // Design agent: Builds tick marks that highlight key CIDR checkpoints.
@@ -273,7 +247,7 @@ function HierarchicalSlider({
     }
     let label;
     if (segment.type === 'layer') {
-      label = `Layer ${segment.index + 1}: ${segment.networkCount.toLocaleString()} network${
+      label = `${segment.label}: ${segment.networkCount.toLocaleString()} network${
         segment.networkCount === 1 ? '' : 's'
       }`;
     } else {
@@ -321,6 +295,17 @@ function HierarchicalSlider({
         <div className="slider-actions">
           <button
             type="button"
+            className={`ghost-button slider-button${canRemove ? '' : ' slider-button--placeholder'}`}
+            onClick={onRemoveLayer}
+            disabled={!canRemove || disabled}
+            aria-label="Remove last layer"
+            aria-hidden={canRemove ? undefined : true}
+            tabIndex={canRemove ? 0 : -1}
+          >
+            –
+          </button>
+          <button
+            type="button"
             className="ghost-button slider-button"
             onClick={onAddLayer}
             disabled={!canAdd || disabled}
@@ -328,63 +313,71 @@ function HierarchicalSlider({
           >
             +
           </button>
-          {canRemove && (
-            <button
-              type="button"
-              className="ghost-button slider-button"
-              onClick={onRemoveLayer}
-              disabled={disabled}
-              aria-label="Remove last layer"
-            >
-              –
-            </button>
-          )}
         </div>
       </div>
       <div className="slider-track">
-        <div
-          className="slider-rail"
-          ref={railRef}
-          onMouseMove={handleRailHover}
-          onMouseEnter={handleRailHover}
-          onMouseLeave={handleRailLeave}
-        >
-          <div className="slider-track-fill" style={trackStyle} />
-          {sortedHandles.map((handle, index) => {
-            const activePercent =
-              dragState && dragState.id === handle.id
-                ? prefixToPercent(dragState.visualPrefix, supernetPrefix)
-                : prefixToPercent(handle.prefix, supernetPrefix);
-            const activeLabel =
-              dragState && dragState.id === handle.id
-                ? Math.round(Math.min(TRACK_MAX_PREFIX, Math.max(supernetPrefix, dragState.visualPrefix)))
-                : handle.prefix;
-            return (
-            <button
-              type="button"
-              key={handle.id}
-              className="slider-handle"
-              style={{ left: `${activePercent}%` }}
-              onPointerDown={(event) => beginDrag(event, handle)}
-              disabled={disabled}
-              aria-label={`Layer ${index + 1} boundary set to /${activeLabel}`}
-            >
-              <span className="slider-handle-label">/{activeLabel}</span>
-            </button>
-            );
-          })}
-          <div className="slider-track-overlay" />
-          {hoverState.isVisible && (
-            <div
-              className="slider-hover-tooltip"
-              style={{
-                left: `${hoverState.x}px`,
-                top: `${hoverState.y}px`,
-              }}
-            >
-              {hoverState.label}
+        <div className="slider-rail">
+          <div
+            className="slider-rail-track"
+            ref={railRef}
+            onMouseMove={handleRailHover}
+            onMouseEnter={handleRailHover}
+            onMouseLeave={handleRailLeave}
+          >
+            <div className="slider-track-fill">
+              {segmentMetrics.paintSegments.map((segment) => {
+                const widthPercent = Math.max(0, segment.endPercent - segment.startPercent);
+                return (
+                  <div
+                    key={`paint-${segment.id}`}
+                    className="slider-track-segment"
+                    style={{
+                      left: `${segment.startPercent}%`,
+                      width: `${widthPercent}%`,
+                      backgroundColor: segment.color,
+                    }}
+                  />
+                );
+              })}
             </div>
-          )}
+            <div className="slider-track-overlay" />
+            {sortedHandles.map((handle, index) => {
+              const trimmedLabel = handle.label ? handle.label.trim() : '';
+              const handleLabel = trimmedLabel !== '' ? trimmedLabel : `Layer ${index + 1}`;
+              const activePercent =
+                dragState && dragState.id === handle.id
+                  ? prefixToPercent(dragState.visualPrefix, supernetPrefix)
+                  : prefixToPercent(handle.prefix, supernetPrefix);
+              const activeLabel =
+                dragState && dragState.id === handle.id
+                  ? Math.round(Math.min(TRACK_MAX_PREFIX, Math.max(supernetPrefix, dragState.visualPrefix)))
+                  : handle.prefix;
+              return (
+                <button
+                  type="button"
+                  key={handle.id}
+                  className="slider-handle"
+                  style={{ left: `${activePercent}%` }}
+                  onPointerDown={(event) => beginDrag(event, handle)}
+                  disabled={disabled}
+                  aria-label={`${handleLabel} boundary set to /${activeLabel}`}
+                >
+                  <span className="slider-handle-label">/{activeLabel}</span>
+                </button>
+              );
+            })}
+            {hoverState.isVisible && (
+              <div
+                className="slider-hover-tooltip"
+                style={{
+                  left: `${hoverState.x}px`,
+                  top: `${hoverState.y}px`,
+                }}
+              >
+                {hoverState.label}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <div className="slider-scale">

@@ -15,7 +15,7 @@ const MAX_MULTIPLIER = 64;
 const MAX_LAYER_COUNT = 12;
 // Design agent: Establishes the allowed CIDR range for slider interaction.
 const MAX_SLIDER_PREFIX = 32;
-const MIN_SLIDER_PREFIX = 8;
+const MIN_SLIDER_PREFIX = 0;
 // Design agent: Defines magnetic breakpoints that help users land on popular CIDR boundaries.
 const MAGNET_PREFIXES = [16, 24, 32];
 // Design agent: Mirrors the slider gradient so list summaries can reuse layer colours.
@@ -40,7 +40,8 @@ const buildAddressFormulaOctets = (parsedSupernet, layers) => {
   const formulaTerms = baseOctets.map((value) => (value === 0 ? [] : [value.toString()]));
 
   layers.forEach((layer, index) => {
-    const label = `layer_${index + 1}_index`;
+    const rawLabel = (layer.label ?? `Layer ${index + 1}`).trim();
+    const label = rawLabel === '' ? `Layer ${index + 1}` : rawLabel;
     const blockSize = 2 ** (MAX_SLIDER_PREFIX - layer.prefix);
     const deltas = toOctets(blockSize);
     deltas.forEach((delta, octetIndex) => {
@@ -55,12 +56,79 @@ const buildAddressFormulaOctets = (parsedSupernet, layers) => {
   return formulaTerms.map((terms) => (terms.length === 0 ? '0' : terms.join(' + ')));
 };
 
+// Design agent: Maps each bit across the address to either the base network, a layer, or the host remainder.
+const buildLayerBitPalette = (parsedSupernet, layers) => {
+  const palette = new Array(MAX_SLIDER_PREFIX).fill(CIDR_COLORS.host);
+  let cursor = 0;
+
+  if (parsedSupernet) {
+    const baseBits = Math.max(0, Math.min(MAX_SLIDER_PREFIX, parsedSupernet.prefix));
+    for (let bit = 0; bit < baseBits; bit += 1) {
+      palette[bit] = CIDR_COLORS.network;
+    }
+    cursor = Math.max(cursor, baseBits);
+  }
+
+  layers.forEach((layer, index) => {
+    const targetPrefix = Math.max(0, Math.min(MAX_SLIDER_PREFIX, layer.prefix));
+    const span = Math.max(0, targetPrefix - cursor);
+    const colour = LAYER_PALETTE[index % LAYER_PALETTE.length];
+    for (let bit = 0; bit < span; bit += 1) {
+      const paletteIndex = cursor + bit;
+      if (paletteIndex >= MAX_SLIDER_PREFIX) {
+        break;
+      }
+      palette[paletteIndex] = colour;
+    }
+    cursor = Math.max(cursor, targetPrefix);
+  });
+
+  return palette;
+};
+
+// Design agent: Builds a text style that reflects the palette assigned to each bit within an octet.
+const buildOctetGradientStyle = (bitSlice) => {
+  if (bitSlice.length === 0) {
+    return { color: CIDR_COLORS.host };
+  }
+  const firstColour = bitSlice[0];
+  const isUniform = bitSlice.every((colour) => colour === firstColour);
+  if (isUniform) {
+    return { color: firstColour };
+  }
+
+  const stops = [];
+  let segmentStart = 0;
+  let currentColour = firstColour;
+
+  for (let index = 1; index < bitSlice.length; index += 1) {
+    const colour = bitSlice[index];
+    if (colour !== currentColour) {
+      const startPercent = (segmentStart / bitSlice.length) * 100;
+      const endPercent = (index / bitSlice.length) * 100;
+      stops.push(`${currentColour} ${startPercent}%`, `${currentColour} ${endPercent}%`);
+      segmentStart = index;
+      currentColour = colour;
+    }
+  }
+
+  const finalStart = (segmentStart / bitSlice.length) * 100;
+  stops.push(`${currentColour} ${finalStart}%`, `${currentColour} 100%`);
+
+  return {
+    backgroundImage: `linear-gradient(90deg, ${stops.join(', ')})`,
+    backgroundClip: 'text',
+    WebkitBackgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+  };
+};
+
 // Design agent: Produces coloured CIDR segments for an address-preview display.
 const buildExampleSegments = (address, prefix) => {
   const octets = intToIpv4(address).split('.');
   const fullNetworkOctets = Math.floor(prefix / 8);
   const partialBits = prefix % 8;
-  const gradientStop = partialBits === 0 ? 0 : (partialBits / 8) * 100;
 
   return octets.flatMap((octet, index) => {
     const segments = [];
@@ -69,24 +137,21 @@ const buildExampleSegments = (address, prefix) => {
         key: `octet-${index}`,
         value: octet,
         style: { color: CIDR_COLORS.network },
+        role: 'network',
       });
     } else if (index === fullNetworkOctets && partialBits > 0) {
       segments.push({
         key: `octet-${index}`,
         value: octet,
-        style: {
-          backgroundImage: `linear-gradient(90deg, ${CIDR_COLORS.network} ${gradientStop}%, ${CIDR_COLORS.host} ${gradientStop}%)`,
-          backgroundClip: 'text',
-          WebkitBackgroundClip: 'text',
-          color: 'transparent',
-          WebkitTextFillColor: 'transparent',
-        },
+        style: { color: CIDR_COLORS.network },
+        role: 'mixed',
       });
     } else {
       segments.push({
         key: `octet-${index}`,
         value: octet,
         style: { color: CIDR_COLORS.host },
+        role: 'host',
       });
     }
 
@@ -95,49 +160,69 @@ const buildExampleSegments = (address, prefix) => {
         key: `dot-${index}`,
         value: '.',
         style: { color: 'inherit' },
+        role: 'separator',
       });
     }
     return segments;
   });
 };
 
-// Design agent: Colours algebraic octet expressions to reflect network versus host coverage.
-const buildFormulaSegments = (octets, prefix) => {
-  const fullNetworkOctets = Math.floor(prefix / 8);
-  const partialBits = prefix % 8;
-  const gradientStop = partialBits === 0 ? 0 : (partialBits / 8) * 100;
-
-  return octets.flatMap((octet, index) => {
-    let style = { color: CIDR_COLORS.host };
-    if (index < fullNetworkOctets) {
-      style = { color: CIDR_COLORS.network };
-    } else if (index === fullNetworkOctets && partialBits > 0) {
-      style = {
-        backgroundImage: `linear-gradient(90deg, ${CIDR_COLORS.network} ${gradientStop}%, ${CIDR_COLORS.host} ${gradientStop}%)`,
-        backgroundClip: 'text',
-        WebkitBackgroundClip: 'text',
-        color: 'transparent',
-        WebkitTextFillColor: 'transparent',
-      };
-    }
-
-    const segments = [
-      {
-        key: `formula-octet-${index}`,
-        value: octet,
-        style,
-      },
-    ];
-
-    if (index < octets.length - 1) {
-      segments.push({
-        key: `formula-dot-${index}`,
-        value: '.',
-        style: { color: 'inherit' },
-      });
-    }
-    return segments;
+// Design agent: Applies the palette across octets so each layer colour remains visible in the formula.
+const buildFormulaSegments = (octets, bitPalette) =>
+  octets.map((octet, index) => {
+    const trimmed = octet.length > 15 ? `${octet.slice(0, 15)}...` : octet;
+    const start = index * 8;
+    const slice = bitPalette ? bitPalette.slice(start, start + 8) : [];
+    return {
+      key: `formula-octet-${index}`,
+      value: trimmed,
+      style: buildOctetGradientStyle(slice),
+    };
   });
+
+// Design agent: Splits the formula across rows and reports layout metrics for responsive styling.
+const buildFormulaRows = (segments) => {
+  if (!segments || segments.length === 0) {
+    return { rows: [], maxLength: 0 };
+  }
+
+  const totalLength = segments.reduce((sum, segment) => sum + segment.value.length, 0) + (segments.length - 1);
+  const needsSplit = totalLength > 32;
+  const groups = needsSplit ? [[0, 1], [2, 3]] : [[0, 1, 2, 3]];
+  const rows = [];
+  let longest = 0;
+
+  groups.forEach((indices, groupIndex) => {
+    if (!indices || indices.length === 0) {
+      return;
+    }
+    const rowSegments = [];
+    let rowLength = 0;
+    indices.forEach((octetIndex, localIndex) => {
+      const segment = segments[octetIndex];
+      if (!segment) {
+        return;
+      }
+      rowSegments.push(segment);
+      rowLength += segment.value.length;
+      const isLastOverall = octetIndex === segments.length - 1;
+      const isLastInGroup = localIndex === indices.length - 1;
+      if (!isLastOverall && (!isLastInGroup || groupIndex < groups.length - 1)) {
+        rowSegments.push({
+          key: `formula-dot-${octetIndex}`,
+          value: '.',
+          style: { color: 'inherit' },
+        });
+        rowLength += 1;
+      }
+    });
+    if (rowSegments.length > 0) {
+      rows.push(rowSegments);
+      longest = Math.max(longest, rowLength);
+    }
+  });
+
+  return { rows, maxLength: longest };
 };
 
 // Design agent: Normalises subnet rows to keep a single empty trailing entry with defaults.
@@ -223,6 +308,7 @@ const buildSliderPlan = (parsedSupernet, handles) => {
       prefix: handle.prefix,
       id: handle.id,
       index,
+      label: handle.label ?? `Layer ${index + 1}`,
       networkCount,
       addressesPerNetwork,
     });
@@ -253,7 +339,7 @@ function VlsmCalculator() {
   const [mode, setMode] = useState('method1');
   const [pathSupernet, setPathSupernet] = useState('');
   const handleIdRef = useRef(1);
-  const [layerHandles, setLayerHandles] = useState([{ id: 'layer-0', prefix: 24 }]);
+  const [layerHandles, setLayerHandles] = useState([{ id: 'layer-0', prefix: 24, label: 'Layer 1' }]);
   // Design agent: Stores the selected network index per layer for the IP example helper.
   const [layerExampleInputs, setLayerExampleInputs] = useState(['1']);
   // Design agent: Tracks the host index requested in the IP example helper.
@@ -265,10 +351,11 @@ function VlsmCalculator() {
   const parsedSupernet = useMemo(() => parseCidr(pathSupernet), [pathSupernet]);
 
   // Design agent: Creates uniquely identified slider handles with a desired prefix.
-  const createHandle = (prefix) => {
+  // Design agent: Generates uniquely identified handles while preserving user-friendly labels.
+  const createHandle = (prefix, label) => {
     const id = `layer-${handleIdRef.current}`;
     handleIdRef.current += 1;
-    return { id, prefix };
+    return { id, prefix, label: label ?? `Layer ${handleIdRef.current}` };
   };
 
   // Design agent: Revalidates slider layers whenever the supernet changes.
@@ -280,7 +367,12 @@ function VlsmCalculator() {
       const sanitised = sanitiseHandles(previous, parsedSupernet.prefix);
       const ensured =
         sanitised.length === 0
-          ? [createHandle(Math.min(MAX_SLIDER_PREFIX, Math.max(parsedSupernet.prefix, MIN_SLIDER_PREFIX)))]
+          ? [
+              createHandle(
+                Math.min(MAX_SLIDER_PREFIX, Math.max(parsedSupernet.prefix, MIN_SLIDER_PREFIX)),
+                'Layer 1',
+              ),
+            ]
           : sanitised;
       if (ensured.length !== previous.length) {
         return ensured;
@@ -441,10 +533,6 @@ function VlsmCalculator() {
       return { error: 'Invalid supernet (use format x.x.x.x/yy).' };
     }
 
-    if (parsedSupernet.prefix < MIN_SLIDER_PREFIX) {
-      return { error: `Supernet prefix must be at least /${MIN_SLIDER_PREFIX}.` };
-    }
-
     const sliderPlan = buildSliderPlan(parsedSupernet, layerHandles);
 
     return {
@@ -472,24 +560,40 @@ function VlsmCalculator() {
     return buildAddressFormulaOctets(methodTwoPlan.parsedBase, methodTwoPlan.layers);
   }, [methodTwoPlan]);
 
-  // Design agent: Determines the prefix applied to the formatted expression.
-  const addressFormatPrefix = useMemo(() => {
+  // Design agent: Mirrors layer ownership across the 32-bit palette for styling.
+  const addressFormulaPalette = useMemo(() => {
     if (!methodTwoPlan || methodTwoPlan.error || methodTwoPlan.pending) {
       return null;
     }
-    if (methodTwoPlan.layers.length === 0) {
-      return methodTwoPlan.basePrefix;
-    }
-    return methodTwoPlan.layers[methodTwoPlan.layers.length - 1].prefix;
+    return buildLayerBitPalette(methodTwoPlan.parsedBase, methodTwoPlan.layers);
   }, [methodTwoPlan]);
 
   // Design agent: Converts the algebraic octets into coloured CIDR segments.
-  const addressFormatSegments = useMemo(() => {
-    if (!addressFormulaOctets || addressFormatPrefix == null) {
+  const addressFormulaSegments = useMemo(() => {
+    if (!addressFormulaOctets) {
       return [];
     }
-    return buildFormulaSegments(addressFormulaOctets, addressFormatPrefix);
-  }, [addressFormulaOctets, addressFormatPrefix]);
+    return buildFormulaSegments(addressFormulaOctets, addressFormulaPalette ?? []);
+  }, [addressFormulaOctets, addressFormulaPalette]);
+
+  // Design agent: Provides pre-split rows for responsive rendering.
+  const addressFormulaLayout = useMemo(() => buildFormulaRows(addressFormulaSegments), [addressFormulaSegments]);
+  const addressFormulaRows = addressFormulaLayout.rows;
+
+  // Design agent: Chooses a comfortable font size based on the widest formula row.
+  const addressFormulaFontSize = useMemo(() => {
+    const length = addressFormulaLayout.maxLength || 0;
+    if (length <= 28) {
+      return '1.1rem';
+    }
+    if (length <= 36) {
+      return '1rem';
+    }
+    if (length <= 44) {
+      return '0.94rem';
+    }
+    return '0.88rem';
+  }, [addressFormulaLayout]);
 
   // Design agent: Evaluates the concrete IP example based on layer and host selections.
   const exampleAnalysis = useMemo(() => {
@@ -594,17 +698,7 @@ function VlsmCalculator() {
 
     if (event.key === 'Backspace' && hostInputs[index].hosts === '' && index > 0) {
       event.preventDefault();
-      const previousIndex = index - 1;
-      setHostInputs((prev) => {
-        const next = [...prev];
-        const previousRow = next[previousIndex] ?? { hosts: '', multiplier: '1' };
-        next[previousIndex] = {
-          ...previousRow,
-          hosts: previousRow.hosts.slice(0, -1),
-        };
-        return normaliseHostRows(next);
-      });
-      focusHostField(previousIndex);
+      focusHostField(index - 1);
     }
   };
 
@@ -627,7 +721,7 @@ function VlsmCalculator() {
       );
       const sanitised = sanitiseHandles(updated, basePrefix);
       if (sanitised.length === 0) {
-        return [createHandle(Math.min(MAX_SLIDER_PREFIX, Math.max(basePrefix, MIN_SLIDER_PREFIX)))];
+        return [createHandle(Math.min(MAX_SLIDER_PREFIX, Math.max(basePrefix, MIN_SLIDER_PREFIX)), 'Layer 1')];
       }
       return sanitised;
     });
@@ -646,7 +740,8 @@ function VlsmCalculator() {
       const availableHeadroom = Math.max(0, MAX_SLIDER_PREFIX - lastPrefix);
       const proposedOffset = Math.max(1, Math.ceil(availableHeadroom / 2));
       const proposedPrefix = Math.min(MAX_SLIDER_PREFIX, lastPrefix + proposedOffset);
-      const nextHandles = [...sanitised, createHandle(proposedPrefix)];
+      const nextLabel = `Layer ${sanitised.length + 1}`;
+      const nextHandles = [...sanitised, createHandle(proposedPrefix, nextLabel)];
       return sanitiseHandles(nextHandles, basePrefix);
     });
   };
@@ -660,6 +755,42 @@ function VlsmCalculator() {
       const basePrefix = parsedSupernet ? parsedSupernet.prefix : MIN_SLIDER_PREFIX;
       const trimmed = [...prev].sort((a, b) => a.prefix - b.prefix).slice(0, -1);
       return sanitiseHandles(trimmed, basePrefix);
+    });
+  };
+
+  // Design agent: Records live edits to the label associated with a specific layer.
+  const handleLayerLabelChange = (handleId, rawValue) => {
+    const sanitised = rawValue.replace(/\s+/g, ' ').slice(0, 40);
+    setLayerHandles((prev) =>
+      prev.map((handle) =>
+        handle.id === handleId
+          ? {
+              ...handle,
+              label: sanitised,
+            }
+          : handle,
+      ),
+    );
+  };
+
+  // Design agent: Ensures empty labels fall back to a readable default.
+  const handleLayerLabelBlur = (handleId) => {
+    setLayerHandles((prev) => {
+      const index = prev.findIndex((handle) => handle.id === handleId);
+      if (index === -1) {
+        return prev;
+      }
+      const current = prev[index];
+      const trimmed = (current.label ?? '').trim();
+      if (trimmed === current.label && trimmed !== '') {
+        return prev;
+      }
+      const next = [...prev];
+      next[index] = {
+        ...current,
+        label: trimmed === '' ? `Layer ${index + 1}` : trimmed,
+      };
+      return next;
     });
   };
 
@@ -848,6 +979,7 @@ function VlsmCalculator() {
               </p>
             ) : (
               <>
+                <div className="result-subheading">Plan overview</div>
                 <p className="result-summary">
                   Supernet: {intToIpv4(methodTwoPlan.parsedBase.network)}/{methodTwoPlan.parsedBase.prefix} · host
                   remainder /{methodTwoPlan.host.prefix}
@@ -858,16 +990,29 @@ function VlsmCalculator() {
                   {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses ·{' '}
                   {methodTwoPlan.host.hostUsable.toLocaleString()} usable).
                 </p>
+                <div className="result-subheading">Layer breakdown</div>
                 <ul className="result-list compact">
                   {methodTwoPlan.layers.map((layer) => {
                     const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
                     const isReadable = layer.prefix % 8 === 0;
                     const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
+                    const layerLabelValue = layer.label ?? '';
+                    const trimmedLayerLabel = layerLabelValue.trim();
+                    const fallbackLayerLabel = `Layer ${layer.index + 1}`;
+                    const readableLayerLabel = trimmedLayerLabel === '' ? fallbackLayerLabel : trimmedLayerLabel;
                     return (
-                      <li key={layer.index} className="result-item layer-result-item">
+                      <li key={layer.id} className="result-item layer-result-item">
                         <div className="layer-result-header">
                           <span className="layer-colour-chip" style={{ backgroundColor: layerColour }} />
-                          <span className="result-title">Layer {layer.index + 1}</span>
+                          <input
+                            type="text"
+                            value={layerLabelValue}
+                            onChange={(event) => handleLayerLabelChange(layer.id, event.target.value)}
+                            onBlur={() => handleLayerLabelBlur(layer.id)}
+                            className="result-title result-title-input"
+                            aria-label={`Rename ${readableLayerLabel}`}
+                            placeholder={fallbackLayerLabel}
+                          />
                           <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
                             Readable: {isReadable ? 'Yes' : 'No'}
                           </span>
@@ -877,45 +1022,46 @@ function VlsmCalculator() {
                           {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ·{' '}
                           {layer.addressesPerNetwork.toLocaleString()} addresses
                         </span>
-                        <span className="result-meta layer-network-meta">
-                          Network base: {intToIpv4(methodTwoPlan.parsedBase.network)}/{layer.prefix}
-                        </span>
+                        <span className="result-meta layer-network-meta">CIDR: /{layer.prefix}</span>
                         {exampleSummary && (
                           <span className="result-meta layer-network-meta">
-                            Example #{exampleSummary.selection}: {exampleSummary.formattedNetwork}/{layer.prefix}
+                            Preview network #{exampleSummary.selection}:{' '}
+                            {exampleSummary.formattedNetwork}/{layer.prefix}
                           </span>
                         )}
                       </li>
                     );
                   })}
-                  <li className="result-item">
-                    <span className="result-title">Address format</span>
-                    {addressFormatSegments.length === 0 || addressFormatPrefix == null ? (
-                      <span className="result-meta muted">Adjust the slider to generate a readable formula.</span>
-                    ) : (
-                      <div className="cidr-display cidr-display--formula" aria-label="Address format">
-                        <span className="cidr-prefix">Formula</span>
-                        <span className="cidr-octets">
-                          {addressFormatSegments.map((segment) => (
+                </ul>
+                <div className="result-subheading result-subheading--formula">Address format</div>
+                {addressFormulaRows.length === 0 ? (
+                  <p className="result-meta muted formula-placeholder">Adjust the slider to generate a readable formula.</p>
+                ) : (
+                  <div
+                    className="cidr-display cidr-display--formula"
+                    aria-label="Address format"
+                    style={{ '--formula-font-size': addressFormulaFontSize }}
+                  >
+                    <span className="cidr-prefix">Formula</span>
+                    <div className="cidr-octets">
+                      {addressFormulaRows.map((row, rowIndex) => (
+                        <span key={`formula-row-${rowIndex}`} className="cidr-row">
+                          {row.map((segment) => (
                             <span key={segment.key} className="cidr-segment" style={segment.style}>
                               {segment.value}
                             </span>
                           ))}
                         </span>
-                        <span className="cidr-separator">/</span>
-                        <span className="cidr-segment" style={{ color: CIDR_COLORS.network }}>
-                          {addressFormatPrefix}
-                        </span>
-                      </div>
-                    )}
-                  </li>
-                </ul>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <p className="result-note">
                   IPv6 readability tip: keep decisive half-octets outside the mask so each hexadecimal character
                   remains visible.
                 </p>
                 <details className="ip-examples">
-                  <summary>IP examples</summary>
+                  <summary>Address explorer</summary>
                   <div className="ip-examples-body">
                     <p className="ip-examples-intro">
                       Choose network indices per layer and optionally a host index to preview the resulting address.
@@ -924,10 +1070,12 @@ function VlsmCalculator() {
                       {methodTwoPlan.layers.map((layer, index) => {
                         const value = layerExampleInputs[index] ?? '';
                         const exampleSummary = exampleAnalysis?.layerSummaries?.[index];
+                        const displayLabel =
+                          layer.label && layer.label.trim() !== '' ? layer.label.trim() : `Layer ${index + 1}`;
                         return (
                           <label key={layer.id} className="field ip-examples-field">
                             <span>
-                              Layer {index + 1} network{' '}
+                              {displayLabel} network{' '}
                               <span
                                 className="layer-colour-chip inline"
                                 style={{ backgroundColor: LAYER_PALETTE[index % LAYER_PALETTE.length] }}
@@ -969,11 +1117,16 @@ function VlsmCalculator() {
                     </div>
                     {exampleAnalysis && (
                       <div className="ip-examples-result">
-                        <div className="cidr-display cidr-display--formula" aria-label="Resolved example address">
+                        <div className="cidr-display" aria-label="Resolved example address">
                           <span className="cidr-prefix">Result</span>
                           <span className="cidr-octets">
                             {exampleDisplaySegments.map((segment) => (
-                              <span key={segment.key} className="cidr-segment" style={segment.style}>
+                              <span
+                                key={segment.key}
+                                className="cidr-segment"
+                                style={segment.style}
+                                data-role={segment.role}
+                              >
                                 {segment.value}
                               </span>
                             ))}

@@ -1,5 +1,5 @@
 ## Coding Instructions
-All files you can modify are located in the "public/" and "src/" folders. The project uses React. Refer to the project specification in the file: "Cahier des charges.md".
+All files you can modify are located in the "public/" and "src/" folders. The project uses React. Refer to the project specification in the file: "../Gestion/Cahier des charges.md".
 [IMPORTANT] We don't have a backend on this infrastructure. All the the code is on the client side.
 
 ## Design Instructions

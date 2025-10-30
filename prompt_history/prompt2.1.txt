@@ -1,0 +1,14 @@
+[IMPORTANT] Assure toi de lire le fichier "AGENTS.md"
+# Amélioration des sections
+## Section 1 - Hierarchical IPv4 Plan
+### Méthode 1
+### Méthode 2
+
+## Section 3 - IPv4 Insight Panel
+### Arrangement des informations
+# Amélioration des champs IP
+
+
+
+# Design
+Aucune modification du style actuel n'est demandé.

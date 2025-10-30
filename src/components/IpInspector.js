@@ -5,7 +5,6 @@ import {
   getAddressType,
   getIpv4Class,
   getTotalAddressCount,
-  getUsableHostCount,
   intToIpv4,
   ipv4ToInt,
   parseCidr,
@@ -41,9 +40,10 @@ const computeFreeSegments = (ipInt, usableStart, usableEnd) => {
   };
 };
 
-// Design agent: Component exposing IPv4 insights and progress visualisation.
+// Design agent: Component exposing IPv4 insights and the interactive progress visualisation.
 function IpInspector() {
   const [input, setInput] = useState('');
+  const [isProgressHovered, setIsProgressHovered] = useState(false);
 
   // Design agent: Derives interpreted metrics for the current input.
   const analysis = useMemo(() => {
@@ -62,49 +62,47 @@ function IpInspector() {
     }
 
     const totalAddresses = getTotalAddressCount(parsed.prefix);
-    const usableHostCount = getUsableHostCount(parsed.prefix);
     const mask = formatMask(parsed.mask);
     const wildcard = formatWildcard(parsed.mask);
-    const nextNetworkInt = parsed.broadcast + 1 <= 0xffffffff ? parsed.broadcast + 1 : null;
-    const nextNetworkLabel = nextNetworkInt !== null ? `${intToIpv4(nextNetworkInt)}/${parsed.prefix}` : 'N/A';
-    const ipPosition = Math.min(
-      Math.max(ipInt, parsed.network),
-      parsed.broadcast,
-    );
-    const progress = totalAddresses > 1 ? ((ipPosition - parsed.network) / (totalAddresses - 1)) * 100 : 100;
+    const ipPosition = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
+    const progress =
+      totalAddresses > 1 ? ((ipPosition - parsed.network) / (totalAddresses - 1)) * 100 : 100;
     const hostRangeStart = parsed.prefix >= 31 ? parsed.network : parsed.network + 1;
     const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
     const freeSegments = computeFreeSegments(ipInt, hostRangeStart, hostRangeEnd);
-    const largestRange = Math.max(freeSegments.left, freeSegments.right);
-    const nonZeroSegments = [freeSegments.left, freeSegments.right].filter((value) => value > 0);
-    const smallestRange = nonZeroSegments.length === 0 ? 0 : Math.min(...nonZeroSegments);
 
     return {
       parsed,
-      ip: parsed.ip,
       prefix: parsed.prefix,
       mask,
       wildcard,
       type: getAddressType(ipInt),
       ipClass: getIpv4Class(parsed.ip),
-      totalAddresses,
-      usableHostCount,
-      usedAddresses: parsed.prefix >= 31 ? totalAddresses : 1,
-      largestRange,
-      smallestRange,
-      nextNetworkLabel,
       progress: Math.max(0, Math.min(progress, 100)),
-      networkLabel: formatCompactOctetLabel(parsed.ip, intToIpv4(parsed.network)),
-      ipLabel: formatCompactOctetLabel(parsed.ip, parsed.ip),
-      broadcastLabel: formatCompactOctetLabel(parsed.ip, intToIpv4(parsed.broadcast)),
       networkAddress: intToIpv4(parsed.network),
       broadcastAddress: intToIpv4(parsed.broadcast),
+      networkEndpoint: formatCompactOctetLabel(parsed.ip, intToIpv4(parsed.network)),
+      broadcastEndpoint: formatCompactOctetLabel(parsed.ip, intToIpv4(parsed.broadcast)),
+      currentOctet: parsed.ip.split('.').pop(),
+      leftUsable: freeSegments.left,
+      rightUsable: freeSegments.right,
+      inspectedIp: parsed.ip,
     };
   }, [input]);
 
   // Design agent: Handles changes within the IPv4/CIDR input control.
   const handleChange = (event) => {
     setInput(event.target.value);
+  };
+
+  // Design agent: Shows tooltips when the progress bar is hovered.
+  const handleProgressEnter = () => {
+    setIsProgressHovered(true);
+  };
+
+  // Design agent: Hides tooltips when the pointer leaves the progress bar.
+  const handleProgressLeave = () => {
+    setIsProgressHovered(false);
   };
 
   return (
@@ -124,22 +122,38 @@ function IpInspector() {
         {analysis.prompt && <p className="result-summary">{analysis.prompt}</p>}
         {analysis.parsed && (
           <>
+            <p className="result-summary">Inspecting {analysis.inspectedIp}/{analysis.prefix}</p>
+
             <div className="progress-wrapper">
-              <div className="progress-track">
+              <div
+                className="progress-track"
+                onMouseEnter={handleProgressEnter}
+                onMouseLeave={handleProgressLeave}
+              >
                 <div
                   className="progress-gradient"
                   style={{ width: `${analysis.progress}%` }}
                 />
                 <div
-                  className="progress-indicator"
+                  className={`progress-indicator ${isProgressHovered ? 'is-hovered' : ''}`}
                   style={{ left: `${analysis.progress}%` }}
                 >
-                  <span>{analysis.ipLabel}</span>
+                  {isProgressHovered && (
+                    <>
+                      <span className="progress-tooltip tooltip-left">
+                        {analysis.leftUsable.toLocaleString()} to network
+                      </span>
+                      <span className="progress-tooltip tooltip-right">
+                        {analysis.rightUsable.toLocaleString()} to broadcast
+                      </span>
+                    </>
+                  )}
+                  <span>{analysis.currentOctet}</span>
                 </div>
               </div>
-              <div className="progress-labels">
-                <span>{analysis.networkLabel}</span>
-                <span>{analysis.broadcastLabel}</span>
+              <div className="progress-extents">
+                <span>{analysis.networkEndpoint}</span>
+                <span>{analysis.broadcastEndpoint}</span>
               </div>
             </div>
 
@@ -149,36 +163,16 @@ function IpInspector() {
                 <p>{analysis.networkAddress}/{analysis.prefix}</p>
               </div>
               <div>
+                <p className="insight-title">Broadcast</p>
+                <p>{analysis.broadcastAddress}</p>
+              </div>
+              <div>
                 <p className="insight-title">Mask</p>
                 <p>{analysis.mask}</p>
               </div>
               <div>
                 <p className="insight-title">Wildcard</p>
                 <p>{analysis.wildcard}</p>
-              </div>
-              <div>
-                <p className="insight-title">Next network</p>
-                <p>{analysis.nextNetworkLabel}</p>
-              </div>
-              <div>
-                <p className="insight-title">Total IPs</p>
-                <p>{analysis.totalAddresses.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="insight-title">Usable IPs</p>
-                <p>{analysis.usableHostCount.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="insight-title">Used IPs</p>
-                <p>{analysis.usedAddresses.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="insight-title">Largest free range</p>
-                <p>{analysis.largestRange.toLocaleString()}</p>
-              </div>
-              <div>
-                <p className="insight-title">Smallest free range</p>
-                <p>{analysis.smallestRange.toLocaleString()}</p>
               </div>
               <div>
                 <p className="insight-title">Type</p>
@@ -197,3 +191,4 @@ function IpInspector() {
 }
 
 export default IpInspector;
+

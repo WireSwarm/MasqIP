@@ -11,8 +11,8 @@ import HierarchicalSlider from './HierarchicalSlider';
 
 const MAX_SUBNET_FIELDS = 16;
 const MAX_MULTIPLIER = 64;
-// Design agent: Limits the number of slider-driven layers to the available colour palette.
-const MAX_LAYER_COUNT = 4;
+// Design agent: Sets a generous cap for slider layers while still keeping the UI manageable.
+const MAX_LAYER_COUNT = 12;
 // Design agent: Establishes the allowed CIDR range for slider interaction.
 const MAX_SLIDER_PREFIX = 32;
 const MIN_SLIDER_PREFIX = 8;
@@ -59,23 +59,28 @@ const maskFromPrefix = (prefix) => {
 // Design agent: Keeps layer handles ordered and within the valid slider range.
 const sanitiseHandles = (handles, basePrefix) => {
   const minimum = Math.min(MAX_SLIDER_PREFIX, Math.max(basePrefix, MIN_SLIDER_PREFIX));
-  const sorted = handles
-    .filter((value) => Number.isFinite(value))
-    .map((value) => Math.round(value))
-    .sort((a, b) => a - b);
+  const normalisedHandles = handles
+    .filter((handle) => handle && Number.isFinite(handle.prefix))
+    .map((handle) => ({
+      ...handle,
+      prefix: Math.round(handle.prefix),
+    }));
 
-  if (sorted.length === 0) {
-    const fallback = Math.min(MAX_SLIDER_PREFIX, Math.max(24, minimum));
-    return [fallback];
+  if (normalisedHandles.length === 0) {
+    return [];
   }
 
+  const sorted = normalisedHandles.sort((a, b) => a.prefix - b.prefix);
   const result = [];
   let cursor = minimum;
 
-  for (const value of sorted) {
-    const clamped = Math.min(MAX_SLIDER_PREFIX, Math.max(value, cursor));
-    result.push(clamped);
-    cursor = clamped;
+  for (const handle of sorted) {
+    const clampedPrefix = Math.min(MAX_SLIDER_PREFIX, Math.max(handle.prefix, cursor));
+    result.push({
+      ...handle,
+      prefix: clampedPrefix,
+    });
+    cursor = clampedPrefix;
     if (result.length === MAX_LAYER_COUNT) {
       break;
     }
@@ -92,18 +97,19 @@ const buildSliderPlan = (parsedSupernet, handles) => {
 
   let previousPrefix = minPrefix;
 
-  orderedHandles.forEach((prefix, index) => {
-    const bits = Math.max(0, prefix - previousPrefix);
+  orderedHandles.forEach((handle, index) => {
+    const bits = Math.max(0, handle.prefix - previousPrefix);
     const networkCount = 2 ** bits;
-    const addressesPerNetwork = 2 ** (MAX_SLIDER_PREFIX - prefix);
+    const addressesPerNetwork = 2 ** (MAX_SLIDER_PREFIX - handle.prefix);
     layers.push({
       bits,
-      prefix,
+      prefix: handle.prefix,
+      id: handle.id,
       index,
       networkCount,
       addressesPerNetwork,
     });
-    previousPrefix = prefix;
+    previousPrefix = handle.prefix;
   });
 
   const hostBits = Math.max(0, MAX_SLIDER_PREFIX - previousPrefix);
@@ -129,12 +135,20 @@ function VlsmCalculator() {
   const [hostInputs, setHostInputs] = useState([{ hosts: '', multiplier: '1' }]);
   const [mode, setMode] = useState('method1');
   const [pathSupernet, setPathSupernet] = useState('');
-  const [layerHandles, setLayerHandles] = useState([24]);
+  const handleIdRef = useRef(1);
+  const [layerHandles, setLayerHandles] = useState([{ id: 'layer-0', prefix: 24 }]);
   const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
 
   // Design agent: Parses the supernet once for downstream consumers.
   const parsedSupernet = useMemo(() => parseCidr(pathSupernet), [pathSupernet]);
+
+  // Design agent: Creates uniquely identified slider handles with a desired prefix.
+  const createHandle = (prefix) => {
+    const id = `layer-${handleIdRef.current}`;
+    handleIdRef.current += 1;
+    return { id, prefix };
+  };
 
   // Design agent: Revalidates slider layers whenever the supernet changes.
   useEffect(() => {
@@ -143,8 +157,19 @@ function VlsmCalculator() {
     }
     setLayerHandles((previous) => {
       const sanitised = sanitiseHandles(previous, parsedSupernet.prefix);
-      if (sanitised.length !== previous.length || sanitised.some((value, index) => value !== previous[index])) {
-        return sanitised;
+      const ensured =
+        sanitised.length === 0
+          ? [createHandle(Math.min(MAX_SLIDER_PREFIX, Math.max(parsedSupernet.prefix, MIN_SLIDER_PREFIX)))]
+          : sanitised;
+      if (ensured.length !== previous.length) {
+        return ensured;
+      }
+      for (let index = 0; index < ensured.length; index += 1) {
+        const nextHandle = ensured[index];
+        const previousHandle = previous[index];
+        if (!previousHandle || previousHandle.id !== nextHandle.id || previousHandle.prefix !== nextHandle.prefix) {
+          return ensured;
+        }
       }
       return previous;
     });
@@ -361,14 +386,22 @@ function VlsmCalculator() {
   };
 
   // Design agent: Applies slider movements to a given layer handle.
-  const handleLayerChange = (index, nextValue) => {
+  const handleLayerChange = (handleId, nextValue) => {
     setLayerHandles((prev) => {
-      const draft = [...prev];
-      draft[index] = nextValue;
-      if (!parsedSupernet) {
-        return sanitiseHandles(draft, MIN_SLIDER_PREFIX);
+      const basePrefix = parsedSupernet ? parsedSupernet.prefix : MIN_SLIDER_PREFIX;
+      const updated = prev.map((handle) =>
+        handle.id === handleId
+          ? {
+              ...handle,
+              prefix: nextValue,
+            }
+          : handle,
+      );
+      const sanitised = sanitiseHandles(updated, basePrefix);
+      if (sanitised.length === 0) {
+        return [createHandle(Math.min(MAX_SLIDER_PREFIX, Math.max(basePrefix, MIN_SLIDER_PREFIX)))];
       }
-      return sanitiseHandles(draft, parsedSupernet.prefix);
+      return sanitised;
     });
   };
 
@@ -380,10 +413,13 @@ function VlsmCalculator() {
       }
       const basePrefix = parsedSupernet ? parsedSupernet.prefix : MIN_SLIDER_PREFIX;
       const sanitised = sanitiseHandles(prev, basePrefix);
-      const last = sanitised[sanitised.length - 1] ?? Math.max(basePrefix, MIN_SLIDER_PREFIX);
-      const gap = Math.max(1, Math.floor((MAX_SLIDER_PREFIX - last) / 2));
-      const proposed = Math.min(MAX_SLIDER_PREFIX, last + gap);
-      return sanitiseHandles([...sanitised, proposed], basePrefix);
+      const lastHandle = sanitised[sanitised.length - 1];
+      const lastPrefix = lastHandle ? lastHandle.prefix : Math.max(basePrefix, MIN_SLIDER_PREFIX);
+      const availableHeadroom = Math.max(0, MAX_SLIDER_PREFIX - lastPrefix);
+      const proposedOffset = Math.max(1, Math.ceil(availableHeadroom / 2));
+      const proposedPrefix = Math.min(MAX_SLIDER_PREFIX, lastPrefix + proposedOffset);
+      const nextHandles = [...sanitised, createHandle(proposedPrefix)];
+      return sanitiseHandles(nextHandles, basePrefix);
     });
   };
 
@@ -393,7 +429,9 @@ function VlsmCalculator() {
       if (prev.length <= 1) {
         return prev;
       }
-      return prev.slice(0, -1);
+      const basePrefix = parsedSupernet ? parsedSupernet.prefix : MIN_SLIDER_PREFIX;
+      const trimmed = [...prev].sort((a, b) => a.prefix - b.prefix).slice(0, -1);
+      return sanitiseHandles(trimmed, basePrefix);
     });
   };
 

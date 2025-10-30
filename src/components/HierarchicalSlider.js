@@ -16,10 +16,21 @@ const prefixToPercent = (prefix, supernetPrefix) => {
   return ((prefix - supernetPrefix) / range) * 100;
 };
 
+// Design agent: Retrieves a handle descriptor by id in a robust way.
+const getHandleById = (handles, id) => handles.find((handle) => handle.id === id);
+
+// Design agent: Produces the prefix that should paint the track for a handle, preferring live drag data.
+const resolvePaintPrefix = (handle, dragState, supernetPrefix) => {
+  if (!dragState || dragState.id !== handle.id) {
+    return handle.prefix;
+  }
+  return Math.min(TRACK_MAX_PREFIX, Math.max(supernetPrefix, dragState.visualPrefix));
+};
+
 // Design agent: Renders a multi-handle slider that maps CIDR prefixes to coloured segments.
 function HierarchicalSlider({
   supernetPrefix,
-  handles,
+  handles = [],
   magnets,
   onHandleChange,
   onAddLayer,
@@ -45,17 +56,18 @@ function HierarchicalSlider({
       return { background: HOST_COLOR };
     }
 
-    const sortedHandles = [...handles].sort((a, b) => a - b);
+    const sortedHandles = [...handles].sort((a, b) => a.prefix - b.prefix);
     const range = Math.max(0.0001, TRACK_MAX_PREFIX - supernetPrefix);
     const stops = [];
     let cursor = 0;
     let previousPrefix = supernetPrefix;
 
-    sortedHandles.forEach((prefix, index) => {
-      const boundedPrefix = Math.min(TRACK_MAX_PREFIX, Math.max(previousPrefix, prefix));
+    sortedHandles.forEach((handle, index) => {
+      const paintPrefix = resolvePaintPrefix(handle, dragState, supernetPrefix);
+      const boundedPrefix = Math.min(TRACK_MAX_PREFIX, Math.max(previousPrefix, paintPrefix));
       const span = Math.max(0, boundedPrefix - previousPrefix);
       const width = (span / range) * 100;
-      const colour = LAYER_COLORS[index] ?? LAYER_COLORS[LAYER_COLORS.length - 1];
+      const colour = LAYER_COLORS[index % LAYER_COLORS.length];
       const start = Math.min(100, cursor);
       const end = Math.min(100, cursor + width);
       stops.push(`${colour} ${start}%`, `${colour} ${end}%`);
@@ -72,7 +84,7 @@ function HierarchicalSlider({
     return {
       background: `linear-gradient(90deg, ${stops.join(', ')})`,
     };
-  }, [handles, supernetPrefix]);
+  }, [dragState, handles, supernetPrefix]);
 
   // Design agent: Builds tick marks that highlight key CIDR checkpoints.
   const scaleMarks = useMemo(() => {
@@ -105,26 +117,17 @@ function HierarchicalSlider({
       const clampedRatio = Math.min(1, Math.max(0, relative));
       const rawPrefix = supernetPrefix + clampedRatio * (TRACK_MAX_PREFIX - supernetPrefix);
 
-      const sortedHandles = [...handles].sort((a, b) => a - b);
-      const index = dragState.index;
-      const previousBoundary = index === 0 ? supernetPrefix : sortedHandles[index - 1];
-      const nextBoundary =
-        index === sortedHandles.length - 1 ? TRACK_MAX_PREFIX : sortedHandles[index + 1];
-
       const now = event.timeStamp || performance.now();
       const elapsed = Math.max(1, now - dragState.lastTime);
-      const delta = Math.abs(rawPrefix - dragState.lastValue);
+      const delta = Math.abs(rawPrefix - dragState.visualPrefix);
       const speed = (delta / elapsed) * 1000;
-      const magnetThreshold = Math.min(3, Math.max(0.4, speed * 0.45));
+      const magnetThreshold = Math.min(2.5, Math.max(0.12, speed * 0.18));
 
       let candidate = rawPrefix;
       if (magnetPoints.length > 0) {
         let snapped = candidate;
         let closest = magnetThreshold + 1;
         magnetPoints.forEach((point) => {
-          if (point < previousBoundary || point > nextBoundary) {
-            return;
-          }
           const distance = Math.abs(point - candidate);
           if (distance <= magnetThreshold && distance < closest) {
             snapped = point;
@@ -134,15 +137,23 @@ function HierarchicalSlider({
         candidate = snapped;
       }
 
-      const rounded = Math.round(candidate);
-      const constrained = Math.min(nextBoundary, Math.max(previousBoundary, rounded));
-      if (constrained !== handles[index]) {
-        onHandleChange(index, constrained);
+      const bounded = Math.min(TRACK_MAX_PREFIX, Math.max(supernetPrefix, candidate));
+      const rounded = Math.round(bounded);
+
+      if (rounded !== dragState.lastReportedPrefix) {
+        onHandleChange(dragState.id, rounded);
       }
-      setDragState({
-        index,
-        lastValue: constrained,
-        lastTime: now,
+
+      setDragState((previous) => {
+        if (!previous || previous.id !== dragState.id) {
+          return previous;
+        }
+        return {
+          ...previous,
+          visualPrefix: bounded,
+          lastTime: now,
+          lastReportedPrefix: rounded,
+        };
       });
     };
 
@@ -157,20 +168,26 @@ function HierarchicalSlider({
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [disabled, dragState, handles, magnetPoints, onHandleChange, supernetPrefix]);
+  }, [disabled, dragState, magnetPoints, onHandleChange, supernetPrefix]);
 
   // Design agent: Maintains handle ordering for consistent layout.
-  const sortedHandles = useMemo(() => [...handles].sort((a, b) => a - b), [handles]);
+  const sortedHandles = useMemo(
+    () => [...handles].sort((a, b) => a.prefix - b.prefix),
+    [handles],
+  );
 
   // Design agent: Captures pointer input and initialises dragging metadata.
-  const beginDrag = (event, index) => {
+  const beginDrag = (event, handle) => {
     if (disabled) {
       return;
     }
     event.preventDefault();
+    const handleRecord = getHandleById(handles, handle.id);
+    const handlePrefix = handleRecord ? handleRecord.prefix : handle.prefix;
     setDragState({
-      index,
-      lastValue: handles[index],
+      id: handle.id,
+      visualPrefix: handlePrefix,
+      lastReportedPrefix: handlePrefix,
       lastTime: event.timeStamp || performance.now(),
     });
   };
@@ -205,18 +222,28 @@ function HierarchicalSlider({
       <div className="slider-track">
         <div className="slider-rail" ref={railRef}>
           <div className="slider-track-fill" style={trackStyle} />
-          {sortedHandles.map((prefix, index) => (
+          {sortedHandles.map((handle) => {
+            const activePercent =
+              dragState && dragState.id === handle.id
+                ? prefixToPercent(dragState.visualPrefix, supernetPrefix)
+                : prefixToPercent(handle.prefix, supernetPrefix);
+            const activeLabel =
+              dragState && dragState.id === handle.id
+                ? Math.round(Math.min(TRACK_MAX_PREFIX, Math.max(supernetPrefix, dragState.visualPrefix)))
+                : handle.prefix;
+            return (
             <button
               type="button"
-              key={`handle-${index}`}
+              key={handle.id}
               className="slider-handle"
-              style={{ left: `${prefixToPercent(prefix, supernetPrefix)}%` }}
-              onPointerDown={(event) => beginDrag(event, index)}
+              style={{ left: `${activePercent}%` }}
+              onPointerDown={(event) => beginDrag(event, handle)}
               disabled={disabled}
             >
-              <span className="slider-handle-label">/{prefix}</span>
+              <span className="slider-handle-label">/{activeLabel}</span>
             </button>
-          ))}
+            );
+          })}
           <div className="slider-track-overlay" />
         </div>
       </div>

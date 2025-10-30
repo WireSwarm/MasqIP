@@ -1,22 +1,43 @@
 [IMPORTANT] Assure toi de lire le fichier "AGENTS.md"
-# Design
-Les couleurs qui sont utilisés pusieurs fois doivent être dans des variables.
-Exemple la couleur
-hote : rgb(249, 115, 22)
-et la couleur reseau : rgb(79, 70, 229)
 # Amélioration des sections
 ## Section 1 - Hierarchical IPv4 Plan - Méthode 2 - Path plan
 Objectif: amélioration du slider.
 ### UX/UI du drag
-Voici quelques directives, mais libre à toi d'en trouver d'autres
-- Visuellement, les crans ne doivent pas se sentir, ça doit être totalement fluide. 
-- le /31 est autorisé
-- Ajouter plus de 4 layer est possible, les couleurs doivent boucler (a,b,c,d,a,b,c,d ...)
-- L'aimant doit être beaucoup moins puissant
-- La puissance d'attration de l'aimant doit dépendre de la vitesse de déplacement du slide handler
-- Pour vérifier, assure toi que les valeurs juste à côté d'un point d'attraction soient toujours atteignable (e.g. /23)
-- les slide handler peuvent se switcher entre eux et ne doivent pas se bloquer les entre les un et les autres
+🧭 Amélioration du Slider — Hierarchical IPv4 Plan (Méthode 2 - Path plan)
 
-## Section 2 - Route Summarizer
+⚠️ IMPORTANT : Lis attentivement le fichier AGENTS.md avant toute modification.
 
-## Section 3 - IPv4 Insight Panel
+🎯 Objectif
+
+Optimiser le comportement et la fluidité du slider de plan d’adressage hiérarchique IPv4 (section Path plan), afin d’améliorer l’expérience utilisateur et la précision de manipulation.
+
+🧩 Améliorations demandées
+1. Expérience utilisateur (UX) et interface (UI)
+
+Le déplacement du curseur (slide handler) doit être parfaitement fluide — aucun cran ne doit être ressenti visuellement ou à la manipulation.
+
+Le /31 doit désormais être autorisé dans les valeurs possibles.
+
+Il doit être possible d’ajouter plus de 4 layers :
+
+Les couleurs doivent boucler dans l’ordre : A, B, C, D, A, B, C, D, ....
+
+2. Comportement de l’aimant (magnétisme)
+
+L’effet d’aimantation doit être nettement réduit :
+
+La puissance d’attraction dépend de la vitesse de déplacement du curseur.
+
+Plus l’utilisateur glisse rapidement, plus l’aimant est fort.
+
+En revanche, à vitesse lente, le curseur doit pouvoir se positionner précisément sur toutes les valeurs, même proches d’un point d’attraction (ex. /23 entre /24 et /22).
+
+⚙️ Vérifie que toutes les valeurs intermédiaires restent accessibles malgré la présence des points d’attraction.
+
+3. Interaction entre plusieurs curseurs
+
+Les slide handlers (curseurs de séparation entre layers) doivent pouvoir se croiser librement.
+
+Aucun curseur ne doit bloquer ou empêcher le mouvement d’un autre — la priorité de position ne doit pas être rigide.
+
+En cas d’inversion, le système doit gérer correctement la permutation des couleurs ou des layers associés.

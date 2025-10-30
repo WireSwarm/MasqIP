@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   alignToBlock,
   formatMask,
@@ -7,11 +7,17 @@ import {
   intToIpv4,
   parseCidr,
 } from '../utils/ipMath';
+import HierarchicalSlider from './HierarchicalSlider';
 
 const MAX_SUBNET_FIELDS = 16;
 const MAX_MULTIPLIER = 64;
-// Design agent: Caps the number of hierarchical dimensions to prevent runaway layouts.
-const MAX_PATH_LEVELS = 16;
+// Design agent: Limits the number of slider-driven layers to the available colour palette.
+const MAX_LAYER_COUNT = 4;
+// Design agent: Establishes the allowed CIDR range for slider interaction.
+const MAX_SLIDER_PREFIX = 32;
+const MIN_SLIDER_PREFIX = 8;
+// Design agent: Defines magnetic breakpoints that help users land on popular CIDR boundaries.
+const MAGNET_PREFIXES = [16, 24, 32];
 
 // Design agent: Normalises subnet rows to keep a single empty trailing entry with defaults.
 const normaliseHostRows = (rows) => {
@@ -42,122 +48,6 @@ const normaliseHostRows = (rows) => {
   return normalised;
 };
 
-// Design agent: Keeps hierarchical path levels dynamic with a single placeholder entry.
-const normalisePathLevels = (levels) => {
-  const normalised = [];
-  let hasPlaceholder = false;
-
-  for (const level of levels) {
-    const label = level.label ?? '';
-    const count = level.count ?? '';
-    const isPlaceholder = Boolean(level.isPlaceholder);
-    const labelTrimmed = label.trim();
-    const countTrimmed = count.trim();
-    const isEmpty = labelTrimmed === '' && (countTrimmed === '' || isPlaceholder);
-
-    if (isEmpty) {
-      if (!hasPlaceholder && normalised.length < MAX_PATH_LEVELS) {
-        normalised.push({ label: '', count: '1', isPlaceholder: true });
-        hasPlaceholder = true;
-      }
-    } else {
-      normalised.push({
-        label,
-        count: count,
-        isPlaceholder: false,
-      });
-      hasPlaceholder = false;
-    }
-
-    if (normalised.length === MAX_PATH_LEVELS && !hasPlaceholder) {
-      break;
-    }
-  }
-
-  if (!hasPlaceholder && normalised.length < MAX_PATH_LEVELS) {
-    normalised.push({ label: '', count: '1', isPlaceholder: true });
-  }
-
-  return normalised;
-};
-
-// Design agent: Computes the minimum bit width needed to cover a numerical count.
-const bitsForCount = (count) => {
-  if (count <= 1) {
-    return 0;
-  }
-  return Math.ceil(Math.log2(count));
-};
-
-// Design agent: Builds a readable dotted template describing how each octet is derived.
-const buildPathSchema = (parsedSupernet, levelBits, remainingHostBits) => {
-  const baseOctets = intToIpv4(parsedSupernet.network).split('.').map(Number);
-  const octetSegments = [[], [], [], []];
-  let bitCursor = parsedSupernet.prefix;
-
-  for (const level of levelBits) {
-    let bitsLeft = level.bits;
-    while (bitsLeft > 0) {
-      const octetIndex = Math.floor(bitCursor / 8);
-      const offset = bitCursor % 8;
-      const available = 8 - offset;
-      const chunk = Math.min(bitsLeft, available);
-      octetSegments[octetIndex].push({
-        label: level.label,
-        bits: chunk,
-        offset,
-      });
-      bitCursor += chunk;
-      bitsLeft -= chunk;
-    }
-  }
-
-  let hostBitsLeft = remainingHostBits;
-  while (hostBitsLeft > 0) {
-    const octetIndex = Math.floor(bitCursor / 8);
-    const offset = bitCursor % 8;
-    const available = 8 - offset;
-    const chunk = Math.min(hostBitsLeft, available);
-    octetSegments[octetIndex].push({
-      label: 'host',
-      bits: chunk,
-      offset,
-    });
-    bitCursor += chunk;
-    hostBitsLeft -= chunk;
-  }
-
-  const templateOctets = baseOctets.map((value, index) => {
-    const octetStart = index * 8;
-    const fixedBits = Math.max(0, Math.min(parsedSupernet.prefix - octetStart, 8));
-    const dynamicSegments = octetSegments[index];
-
-    if (fixedBits === 8 || dynamicSegments.length === 0) {
-      return `${value}`;
-    }
-
-    const dynamicBits = 8 - fixedBits;
-    const fillsOctet =
-      fixedBits === 0 && dynamicSegments.length === 1 && dynamicSegments[0].bits === 8;
-
-    if (fillsOctet) {
-      return `[${dynamicSegments[0].label}]`;
-    }
-
-    const summary = dynamicSegments
-      .map((segment) => `${segment.label}${segment.bits !== dynamicBits ? `:${segment.bits}b` : ''}`)
-      .join(' · ');
-
-    if (fixedBits === 0) {
-      return `[${summary}]`;
-    }
-
-    return `${value} + [${summary}]`;
-  });
-
-  return templateOctets.join('.');
-};
-
 // Design agent: Produces a mask integer from a CIDR prefix length.
 const maskFromPrefix = (prefix) => {
   if (prefix === 0) {
@@ -166,22 +56,99 @@ const maskFromPrefix = (prefix) => {
   return (~0 << (32 - prefix)) >>> 0;
 };
 
+// Design agent: Keeps layer handles ordered and within the valid slider range.
+const sanitiseHandles = (handles, basePrefix) => {
+  const minimum = Math.min(MAX_SLIDER_PREFIX, Math.max(basePrefix, MIN_SLIDER_PREFIX));
+  const sorted = handles
+    .filter((value) => Number.isFinite(value))
+    .map((value) => Math.round(value))
+    .sort((a, b) => a - b);
+
+  if (sorted.length === 0) {
+    const fallback = Math.min(MAX_SLIDER_PREFIX, Math.max(24, minimum));
+    return [fallback];
+  }
+
+  const result = [];
+  let cursor = minimum;
+
+  for (const value of sorted) {
+    const clamped = Math.min(MAX_SLIDER_PREFIX, Math.max(value, cursor));
+    result.push(clamped);
+    cursor = clamped;
+    if (result.length === MAX_LAYER_COUNT) {
+      break;
+    }
+  }
+
+  return result;
+};
+
+// Design agent: Summarises the number of networks produced per layer and the remaining host pool.
+const buildSliderPlan = (parsedSupernet, handles) => {
+  const minPrefix = Math.min(MAX_SLIDER_PREFIX, Math.max(parsedSupernet.prefix, MIN_SLIDER_PREFIX));
+  const orderedHandles = sanitiseHandles(handles, parsedSupernet.prefix);
+  const layers = [];
+
+  let previousPrefix = minPrefix;
+
+  orderedHandles.forEach((prefix, index) => {
+    const bits = Math.max(0, prefix - previousPrefix);
+    const networkCount = 2 ** bits;
+    const addressesPerNetwork = 2 ** (MAX_SLIDER_PREFIX - prefix);
+    layers.push({
+      bits,
+      prefix,
+      index,
+      networkCount,
+      addressesPerNetwork,
+    });
+    previousPrefix = prefix;
+  });
+
+  const hostBits = Math.max(0, MAX_SLIDER_PREFIX - previousPrefix);
+  const hostAddresses = 2 ** hostBits;
+  const hostUsable = hostBits >= 2 ? Math.max(0, hostAddresses - 2) : hostAddresses;
+
+  return {
+    orderedHandles,
+    basePrefix: minPrefix,
+    layers,
+    host: {
+      prefix: previousPrefix,
+      hostBits,
+      hostAddresses,
+      hostUsable,
+    },
+  };
+};
+
 // Design agent: Implements hierarchical IPv4 planning with multiplier support and path-based schemes.
 function VlsmCalculator() {
   const [baseNetwork, setBaseNetwork] = useState('');
   const [hostInputs, setHostInputs] = useState([{ hosts: '', multiplier: '1' }]);
   const [mode, setMode] = useState('method1');
   const [pathSupernet, setPathSupernet] = useState('');
-  const [pathLevels, setPathLevels] = useState(() =>
-    normalisePathLevels([
-      { label: 'Building', count: '1' },
-      { label: 'Floor', count: '1' },
-    ]),
-  );
-  // Design agent: Leaves the leaf size input visually empty while defaulting to 256 internally.
-  const [leafSize, setLeafSize] = useState('');
+  const [layerHandles, setLayerHandles] = useState([24]);
   const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
+
+  // Design agent: Parses the supernet once for downstream consumers.
+  const parsedSupernet = useMemo(() => parseCidr(pathSupernet), [pathSupernet]);
+
+  // Design agent: Revalidates slider layers whenever the supernet changes.
+  useEffect(() => {
+    if (!parsedSupernet) {
+      return;
+    }
+    setLayerHandles((previous) => {
+      const sanitised = sanitiseHandles(previous, parsedSupernet.prefix);
+      if (sanitised.length !== previous.length || sanitised.some((value, index) => value !== previous[index])) {
+        return sanitised;
+      }
+      return previous;
+    });
+  }, [parsedSupernet]);
 
   // Design agent: Focuses a subnet host field and places the caret at the end.
   const focusHostField = (index) => {
@@ -300,95 +267,38 @@ function VlsmCalculator() {
     };
   }, [baseNetwork, hostInputs]);
 
-  // Design agent: Computes addressing plans for method 2 (path-based hierarchy).
+  // Design agent: Computes addressing plans derived from the slider-based hierarchy.
   const methodTwoPlan = useMemo(() => {
     if (pathSupernet.trim() === '') {
       return { pending: true };
     }
 
-    const parsedBase = parseCidr(pathSupernet);
-    if (!parsedBase) {
+    if (!parsedSupernet) {
       return { error: 'Invalid supernet (use format x.x.x.x/yy).' };
     }
 
-    const hostBitsAvailable = 32 - parsedBase.prefix;
-    const levelDescriptors = pathLevels.map((level, index) => {
-      const rawCount = level.count ?? '';
-      const countTrimmed = rawCount.trim();
-      const originalLabel = level.label ?? '';
-      const labelTrimmed = originalLabel.trim();
-
-      return {
-        index,
-        label: labelTrimmed || `Level ${index + 1}`,
-        rawCount,
-        countTrimmed,
-        isPlaceholder: Boolean(level.isPlaceholder),
-        originalLabel,
-      };
-    });
-
-    const activeLevels = levelDescriptors.filter(
-      (level) => !level.isPlaceholder && (level.originalLabel.trim() !== '' || level.countTrimmed !== ''),
-    );
-    if (activeLevels.length === 0) {
-      return {
-        pending: true,
-        parsedBase,
-        note: 'Provide at least one path dimension.',
-      };
+    if (parsedSupernet.prefix < MIN_SLIDER_PREFIX) {
+      return { error: `Supernet prefix must be at least /${MIN_SLIDER_PREFIX}.` };
     }
 
-    const parsedLevels = [];
-    for (const level of activeLevels) {
-      const countValue = level.countTrimmed === '' ? 1 : Number(level.countTrimmed);
-      if (Number.isNaN(countValue) || countValue < 1) {
-        return { error: `Invalid count for ${level.label}.` };
-      }
-      parsedLevels.push({
-        ...level,
-        count: countValue,
-        bits: bitsForCount(countValue),
-      });
-    }
-
-    const totalLevelBits = parsedLevels.reduce((sum, level) => sum + level.bits, 0);
-    if (totalLevelBits > hostBitsAvailable) {
-      return {
-        error: `Path dimensions require ${totalLevelBits} host bits but only ${hostBitsAvailable} are available in the supernet.`,
-      };
-    }
-
-    const trimmedLeaf = leafSize.trim();
-    const leafAddresses = trimmedLeaf === '' ? 256 : Number(trimmedLeaf);
-    if (Number.isNaN(leafAddresses) || leafAddresses < 1) {
-      return { error: 'Network size must be a positive integer.' };
-    }
-
-    const leafBits = bitsForCount(leafAddresses);
-    const remainingHostBits = hostBitsAvailable - totalLevelBits;
-    if (leafBits > remainingHostBits) {
-      return {
-        error: `Leaf networks need ${leafBits} host bits but only ${remainingHostBits} remain after reserving path dimensions.`,
-      };
-    }
-
-    const finalPrefix = parsedBase.prefix + totalLevelBits;
-    const addressesPerLeaf = 2 ** remainingHostBits;
-    const usableHostsPerLeaf =
-      remainingHostBits >= 2 ? Math.max(0, addressesPerLeaf - 2) : addressesPerLeaf;
-    const template = buildPathSchema(parsedBase, parsedLevels, remainingHostBits);
+    const sliderPlan = buildSliderPlan(parsedSupernet, layerHandles);
 
     return {
-      parsedBase,
-      parsedLevels,
-      finalPrefix,
-      remainingHostBits,
-      addressesPerLeaf,
-      usableHostsPerLeaf,
-      template,
+      parsedBase: parsedSupernet,
+      ...sliderPlan,
     };
-  }, [leafSize, pathLevels, pathSupernet]);
+  }, [layerHandles, pathSupernet, parsedSupernet]);
+
+  // Design agent: Provides reliable slider props even while the plan is pending or invalid.
+  const sliderPreview = useMemo(() => {
+    const fallbackPrefix = parsedSupernet ? parsedSupernet.prefix : MIN_SLIDER_PREFIX;
+    const basePrefix = methodTwoPlan?.basePrefix ?? Math.min(MAX_SLIDER_PREFIX, Math.max(fallbackPrefix, MIN_SLIDER_PREFIX));
+    const handles = methodTwoPlan?.orderedHandles ?? sanitiseHandles(layerHandles, fallbackPrefix);
+    return {
+      basePrefix,
+      handles,
+    };
+  }, [layerHandles, methodTwoPlan, parsedSupernet]);
 
   // Design agent: Updates the base network input for method 1.
   const handleBaseChange = (event) => {
@@ -450,34 +360,41 @@ function VlsmCalculator() {
     setPathSupernet(event.target.value);
   };
 
-  // Design agent: Stores changes for path dimension labels or counts.
-  const handleLevelChange = (index, field, value) => {
-    setPathLevels((prev) => {
-      const next = [...prev];
-      const current = next[index] ?? { label: '', count: '1', isPlaceholder: true };
-      next[index] = {
-        ...current,
-        [field]: value,
-        isPlaceholder: false,
-      };
-      return normalisePathLevels(next);
+  // Design agent: Applies slider movements to a given layer handle.
+  const handleLayerChange = (index, nextValue) => {
+    setLayerHandles((prev) => {
+      const draft = [...prev];
+      draft[index] = nextValue;
+      if (!parsedSupernet) {
+        return sanitiseHandles(draft, MIN_SLIDER_PREFIX);
+      }
+      return sanitiseHandles(draft, parsedSupernet.prefix);
     });
   };
 
-  // Design agent: Removes a hierarchical dimension row.
-  const handleRemoveLevel = (index) => {
-    setPathLevels((prev) => {
-      if (prev.length === 1) {
+  // Design agent: Inserts a new intermediate layer at a balanced position.
+  const handleAddLayer = () => {
+    setLayerHandles((prev) => {
+      if (prev.length >= MAX_LAYER_COUNT) {
         return prev;
       }
-      const next = prev.filter((_, idx) => idx !== index);
-      return normalisePathLevels(next);
+      const basePrefix = parsedSupernet ? parsedSupernet.prefix : MIN_SLIDER_PREFIX;
+      const sanitised = sanitiseHandles(prev, basePrefix);
+      const last = sanitised[sanitised.length - 1] ?? Math.max(basePrefix, MIN_SLIDER_PREFIX);
+      const gap = Math.max(1, Math.floor((MAX_SLIDER_PREFIX - last) / 2));
+      const proposed = Math.min(MAX_SLIDER_PREFIX, last + gap);
+      return sanitiseHandles([...sanitised, proposed], basePrefix);
     });
   };
 
-  // Design agent: Updates the desired network size per leaf in method 2.
-  const handleLeafSizeChange = (event) => {
-    setLeafSize(event.target.value.replace(/[^\d]/g, ''));
+  // Design agent: Drops the last layer when the user requests a simplification.
+  const handleRemoveLayer = () => {
+    setLayerHandles((prev) => {
+      if (prev.length <= 1) {
+        return prev;
+      }
+      return prev.slice(0, -1);
+    });
   };
 
   return (
@@ -628,85 +545,54 @@ function VlsmCalculator() {
             />
           </label>
 
-          <div className="field-group">
-            <span className="field-group-label">Path dimensions</span>
-            {pathLevels.map((level, index) => (
-              <div key={index} className="field multi-field">
-                <div className="field-row textual">
-                  <input
-                    value={level.label}
-                    placeholder={`Level ${index + 1}`}
-                    className="field-input text-input"
-                    onChange={(event) => handleLevelChange(index, 'label', event.target.value)}
-                  />
-                  <input
-                    value={level.count}
-                    inputMode="numeric"
-                    pattern="\d*"
-                    placeholder="Count"
-                    className="field-input count-input"
-                    onChange={(event) =>
-                      handleLevelChange(index, 'count', event.target.value.replace(/[^\d]/g, ''))
-                    }
-                  />
-                  {pathLevels.length > 1 && !level.isPlaceholder && (
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      onClick={() => handleRemoveLevel(index)}
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <label className="field">
-            <span>Network size per leaf (addresses)</span>
-            <input
-              value={leafSize}
-              inputMode="numeric"
-              pattern="\d*"
-              placeholder="e.g. 256"
-              className="field-input"
-              onChange={handleLeafSizeChange}
-            />
-          </label>
+          <HierarchicalSlider
+            supernetPrefix={sliderPreview.basePrefix}
+            handles={sliderPreview.handles}
+            magnets={MAGNET_PREFIXES}
+            onHandleChange={handleLayerChange}
+            onAddLayer={handleAddLayer}
+            onRemoveLayer={handleRemoveLayer}
+            canAdd={layerHandles.length < MAX_LAYER_COUNT}
+            canRemove={layerHandles.length > 1}
+            disabled={!parsedSupernet || Boolean(methodTwoPlan.error)}
+          />
 
           <div className="result-card">
             {methodTwoPlan.error ? (
               <p className="error-text">{methodTwoPlan.error}</p>
             ) : methodTwoPlan.pending ? (
               <p className="result-summary">
-                {methodTwoPlan.note || 'Enter supernet, dimensions, and leaf size to generate a plan.'}
+                Start by selecting a supernet, then drag the sliders to carve your addressing layers.
               </p>
             ) : (
               <>
                 <p className="result-summary">
-                  Supernet: {intToIpv4(methodTwoPlan.parsedBase.network)}/{methodTwoPlan.parsedBase.prefix} → leaf
-                  prefix /{methodTwoPlan.finalPrefix}
+                  Supernet: {intToIpv4(methodTwoPlan.parsedBase.network)}/{methodTwoPlan.parsedBase.prefix} · host
+                  remainder /{methodTwoPlan.host.prefix}
                 </p>
                 <p className="result-summary">
-                  Each leaf covers {methodTwoPlan.addressesPerLeaf.toLocaleString()} addresses (
-                  {methodTwoPlan.usableHostsPerLeaf.toLocaleString()} usable).
+                  Host pool keeps {methodTwoPlan.host.hostBits} bit
+                  {methodTwoPlan.host.hostBits === 1 ? '' : 's'} (
+                  {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses ·{' '}
+                  {methodTwoPlan.host.hostUsable.toLocaleString()} usable).
                 </p>
-                <p className="result-summary">Schema: {methodTwoPlan.template}</p>
                 <ul className="result-list compact">
-                  {methodTwoPlan.parsedLevels.map((level) => (
-                    <li key={level.label} className="result-item">
-                      <span className="result-title">{level.label}</span>
+                  {methodTwoPlan.layers.map((layer) => (
+                    <li key={layer.index} className="result-item">
+                      <span className="result-title">Layer {layer.index + 1}</span>
                       <span className="result-meta">
-                        {level.count.toLocaleString()} options · {level.bits} bit{level.bits === 1 ? '' : 's'}
+                        /{layer.prefix} · {layer.bits} bit{layer.bits === 1 ? '' : 's'} ·{' '}
+                        {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ×{' '}
+                        {layer.addressesPerNetwork.toLocaleString()} addresses
                       </span>
                     </li>
                   ))}
                   <li className="result-item">
-                    <span className="result-title">Leaf network</span>
+                    <span className="result-title">Host allocation</span>
                     <span className="result-meta">
-                      Host space retains {methodTwoPlan.remainingHostBits} bit
-                      {methodTwoPlan.remainingHostBits === 1 ? '' : 's'}
+                      Remainder /{methodTwoPlan.host.prefix} ·{' '}
+                      {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses (
+                      {methodTwoPlan.host.hostUsable.toLocaleString()} usable)
                     </span>
                   </li>
                 </ul>

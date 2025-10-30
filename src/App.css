@@ -12,6 +12,11 @@
   --shadow-color: rgba(12, 10, 40, 0.75);
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-highlight: rgba(255, 255, 255, 0.06);
+  --layer-color-a: rgb(79, 70, 229);
+  --layer-color-b: rgb(129, 140, 248);
+  --layer-color-c: rgb(168, 85, 247);
+  --layer-color-d: rgb(56, 189, 248);
+  --layer-host-color: rgb(249, 115, 22);
 }
 
 .app-surface {

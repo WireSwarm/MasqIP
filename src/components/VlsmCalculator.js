@@ -10,6 +10,8 @@ import {
 
 const MAX_SUBNET_FIELDS = 16;
 const MAX_MULTIPLIER = 64;
+// Design agent: Caps the number of hierarchical dimensions to prevent runaway layouts.
+const MAX_PATH_LEVELS = 16;
 
 // Design agent: Normalises subnet rows to keep a single empty trailing entry with defaults.
 const normaliseHostRows = (rows) => {
@@ -35,6 +37,45 @@ const normaliseHostRows = (rows) => {
 
   if (!hasTrailingEmpty && normalised.length < MAX_SUBNET_FIELDS) {
     normalised.push({ hosts: '', multiplier: '1' });
+  }
+
+  return normalised;
+};
+
+// Design agent: Keeps hierarchical path levels dynamic with a single placeholder entry.
+const normalisePathLevels = (levels) => {
+  const normalised = [];
+  let hasPlaceholder = false;
+
+  for (const level of levels) {
+    const label = level.label ?? '';
+    const count = level.count ?? '';
+    const isPlaceholder = Boolean(level.isPlaceholder);
+    const labelTrimmed = label.trim();
+    const countTrimmed = count.trim();
+    const isEmpty = labelTrimmed === '' && (countTrimmed === '' || isPlaceholder);
+
+    if (isEmpty) {
+      if (!hasPlaceholder && normalised.length < MAX_PATH_LEVELS) {
+        normalised.push({ label: '', count: '1', isPlaceholder: true });
+        hasPlaceholder = true;
+      }
+    } else {
+      normalised.push({
+        label,
+        count: count,
+        isPlaceholder: false,
+      });
+      hasPlaceholder = false;
+    }
+
+    if (normalised.length === MAX_PATH_LEVELS && !hasPlaceholder) {
+      break;
+    }
+  }
+
+  if (!hasPlaceholder && normalised.length < MAX_PATH_LEVELS) {
+    normalised.push({ label: '', count: '1', isPlaceholder: true });
   }
 
   return normalised;
@@ -131,11 +172,13 @@ function VlsmCalculator() {
   const [hostInputs, setHostInputs] = useState([{ hosts: '', multiplier: '1' }]);
   const [mode, setMode] = useState('method1');
   const [pathSupernet, setPathSupernet] = useState('');
-  const [pathLevels, setPathLevels] = useState([
-    { label: 'Building', count: '' },
-    { label: 'Floor', count: '' },
-  ]);
-  const [leafSize, setLeafSize] = useState('');
+  const [pathLevels, setPathLevels] = useState(() =>
+    normalisePathLevels([
+      { label: 'Building', count: '1' },
+      { label: 'Floor', count: '1' },
+    ]),
+  );
+  const [leafSize, setLeafSize] = useState('256');
   const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
 
@@ -268,13 +311,25 @@ function VlsmCalculator() {
     }
 
     const hostBitsAvailable = 32 - parsedBase.prefix;
-    const levelDescriptors = pathLevels.map((level, index) => ({
-      index,
-      label: level.label.trim() || `Level ${index + 1}`,
-      rawCount: level.count,
-    }));
+    const levelDescriptors = pathLevels.map((level, index) => {
+      const rawCount = level.count ?? '';
+      const countTrimmed = rawCount.trim();
+      const originalLabel = level.label ?? '';
+      const labelTrimmed = originalLabel.trim();
 
-    const activeLevels = levelDescriptors.filter((level) => level.rawCount.trim() !== '');
+      return {
+        index,
+        label: labelTrimmed || `Level ${index + 1}`,
+        rawCount,
+        countTrimmed,
+        isPlaceholder: Boolean(level.isPlaceholder),
+        originalLabel,
+      };
+    });
+
+    const activeLevels = levelDescriptors.filter(
+      (level) => !level.isPlaceholder && (level.originalLabel.trim() !== '' || level.countTrimmed !== ''),
+    );
     if (activeLevels.length === 0) {
       return {
         pending: true,
@@ -285,14 +340,14 @@ function VlsmCalculator() {
 
     const parsedLevels = [];
     for (const level of activeLevels) {
-      const count = Number(level.rawCount);
-      if (Number.isNaN(count) || count < 1) {
+      const countValue = level.countTrimmed === '' ? 1 : Number(level.countTrimmed);
+      if (Number.isNaN(countValue) || countValue < 1) {
         return { error: `Invalid count for ${level.label}.` };
       }
       parsedLevels.push({
         ...level,
-        count,
-        bits: bitsForCount(count),
+        count: countValue,
+        bits: bitsForCount(countValue),
       });
     }
 
@@ -304,16 +359,7 @@ function VlsmCalculator() {
     }
 
     const trimmedLeaf = leafSize.trim();
-    if (trimmedLeaf === '') {
-      return {
-        pending: true,
-        parsedBase,
-        parsedLevels,
-        note: 'Specify the network size per leaf.',
-      };
-    }
-
-    const leafAddresses = Number(trimmedLeaf);
+    const leafAddresses = trimmedLeaf === '' ? 256 : Number(trimmedLeaf);
     if (Number.isNaN(leafAddresses) || leafAddresses < 1) {
       return { error: 'Network size must be a positive integer.' };
     }
@@ -407,18 +453,13 @@ function VlsmCalculator() {
   const handleLevelChange = (index, field, value) => {
     setPathLevels((prev) => {
       const next = [...prev];
-      next[index] = { ...next[index], [field]: value };
-      return next;
-    });
-  };
-
-  // Design agent: Adds a new hierarchical dimension row.
-  const handleAddLevel = () => {
-    setPathLevels((prev) => {
-      if (prev.length >= 6) {
-        return prev;
-      }
-      return [...prev, { label: `Level ${prev.length + 1}`, count: '' }];
+      const current = next[index] ?? { label: '', count: '1', isPlaceholder: true };
+      next[index] = {
+        ...current,
+        [field]: value,
+        isPlaceholder: false,
+      };
+      return normalisePathLevels(next);
     });
   };
 
@@ -428,7 +469,8 @@ function VlsmCalculator() {
       if (prev.length === 1) {
         return prev;
       }
-      return prev.filter((_, idx) => idx !== index);
+      const next = prev.filter((_, idx) => idx !== index);
+      return normalisePathLevels(next);
     });
   };
 
@@ -606,7 +648,7 @@ function VlsmCalculator() {
                       handleLevelChange(index, 'count', event.target.value.replace(/[^\d]/g, ''))
                     }
                   />
-                  {pathLevels.length > 1 && (
+                  {pathLevels.length > 1 && !level.isPlaceholder && (
                     <button
                       type="button"
                       className="ghost-button"
@@ -618,9 +660,6 @@ function VlsmCalculator() {
                 </div>
               </div>
             ))}
-            <button type="button" className="accent-button" onClick={handleAddLevel}>
-              Add dimension
-            </button>
           </div>
 
           <label className="field">

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   commonPrefixLength,
   intToIpv4,
+  ipv4ToInt,
   parseCidr,
 } from '../utils/ipMath';
 
@@ -53,25 +54,69 @@ function RouteSummarizer() {
 
   // Design agent: Calculates the aggregated summary prefix from all entered networks.
   const summary = useMemo(() => {
+    // Design agent: Baseline reminder about the shared-mask behaviour.
+    const defaultInheritanceMessage = 'Entries without a mask inherit the first specified mask.';
+
     const entries = routes
       .map((raw, index) => ({ raw: raw.trim(), index }))
       .filter((item) => item.raw.length > 0);
 
     if (entries.length === 0) {
-      return { label: 'Waiting for networks…' };
+      return { label: 'Waiting for networks.', inheritanceMessage: defaultInheritanceMessage };
     }
 
-    const parsed = entries.map((entry) => {
-      const cidr = parseCidr(entry.raw);
-      return { ...entry, cidr };
-    });
+    let assumedPrefix = null;
+    let assumedMask = null;
+    const resolvedNetworks = [];
+    const pendingNetworks = [];
 
-    const invalid = parsed.find((entry) => !entry.cidr);
-    if (invalid) {
-      return { error: `Invalid network at row ${invalid.index + 1}.` };
+    for (const entry of entries) {
+      if (entry.raw.includes('/')) {
+        const cidr = parseCidr(entry.raw);
+        if (!cidr) {
+          return { error: `Invalid network at row ${entry.index + 1}.` };
+        }
+        if (assumedPrefix === null) {
+          assumedPrefix = cidr.prefix;
+          assumedMask = cidr.mask;
+        } else if (cidr.prefix !== assumedPrefix) {
+          return {
+            error: `Mask mismatch at row ${entry.index + 1}. Expected /${assumedPrefix}.`,
+          };
+        }
+        resolvedNetworks.push(cidr);
+      } else {
+        const ipInt = ipv4ToInt(entry.raw);
+        if (ipInt === null) {
+          return { error: `Invalid IPv4 address at row ${entry.index + 1}.` };
+        }
+        pendingNetworks.push({ index: entry.index, ip: entry.raw, ipInt });
+      }
     }
 
-    const networks = parsed.map((entry) => entry.cidr);
+    if (assumedPrefix === null) {
+      return {
+        error: 'Provide the mask for at least one network so it can be applied to the others.',
+      };
+    }
+
+    if (assumedMask === null) {
+      assumedMask = assumedPrefix === 0 ? 0 : (~0 << (32 - assumedPrefix)) >>> 0;
+    }
+
+    for (const pending of pendingNetworks) {
+      const network = pending.ipInt & assumedMask;
+      const broadcast = network | (~assumedMask >>> 0);
+      resolvedNetworks.push({
+        ip: pending.ip,
+        prefix: assumedPrefix,
+        mask: assumedMask,
+        network,
+        broadcast,
+      });
+    }
+
+    const networks = resolvedNetworks;
     let minNetwork = networks[0].network;
     let maxBroadcast = networks[0].broadcast;
 
@@ -84,9 +129,20 @@ function RouteSummarizer() {
     const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
     const summaryNetwork = minNetwork & mask;
 
+    const assumedCount = pendingNetworks.length;
+    const assumptionNote =
+      assumedCount > 0
+        ? `Applied /${assumedPrefix} to ${assumedCount} entr${assumedCount === 1 ? 'y' : 'ies'} without a mask.`
+        : null;
+
+    // Design agent: Persistent reminder so users understand the shared-mask behaviour.
+    const inheritanceMessage = `Entries without a mask inherit the first specified /${assumedPrefix}.`;
+
     return {
       networks: entries.length,
       summary: `${intToIpv4(summaryNetwork >>> 0)}/${prefix}`,
+      assumptionNote,
+      inheritanceMessage,
     };
   }, [routes]);
 
@@ -149,6 +205,8 @@ function RouteSummarizer() {
           <div className="result-summary">
             <p>{summary.label || `Routes entered: ${summary.networks}`}</p>
             {summary.summary && <p className="result-highlight">Route summary: {summary.summary}</p>}
+            <p className="result-meta">{summary.inheritanceMessage}</p>
+            {summary.assumptionNote && <p className="result-meta">{summary.assumptionNote}</p>}
           </div>
         )}
       </div>

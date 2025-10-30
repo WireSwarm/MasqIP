@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   formatMask,
   formatWildcard,
@@ -91,6 +91,9 @@ const buildBoundaryBinary = (address, prefix, colors) => {
     networkBits: binary.slice(0, partialBits),
     hostBits: binary.slice(partialBits),
     colors,
+    octetIndex: boundaryOctetIndex,
+    hostBitCount: 8 - partialBits,
+    networkBitCount: partialBits,
   };
 };
 
@@ -111,6 +114,16 @@ const getHostPortionLabel = (addressInt, baseNetwork, prefix) => {
 function IpInspector() {
   const [input, setInput] = useState('');
   const [isProgressHovered, setIsProgressHovered] = useState(false);
+  // Design agent: Stores live tooltip metadata for the progress bar.
+  const [tooltipState, setTooltipState] = useState({
+    isVisible: false,
+    x: 0,
+    y: 0,
+    label: '',
+    side: 'before',
+  });
+  // Design agent: References the progress track for tooltip alignment.
+  const progressTrackRef = useRef(null);
 
   // Design agent: Derives interpreted metrics for the current input.
   const analysis = useMemo(() => {
@@ -131,19 +144,20 @@ function IpInspector() {
     const totalAddresses = getTotalAddressCount(parsed.prefix);
     const mask = formatMask(parsed.mask);
     const wildcard = formatWildcard(parsed.mask);
-    const ipPosition = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
-    const progress =
-      totalAddresses > 1 ? ((ipPosition - parsed.network) / (totalAddresses - 1)) * 100 : 100;
+    const clampedIp = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
+    const hostSpan = parsed.broadcast - parsed.network;
+    const rawProgress = hostSpan === 0 ? 1 : (clampedIp - parsed.network) / hostSpan;
+    const progressRatio = Math.max(0, Math.min(rawProgress, 1));
+    const progress = progressRatio * 100;
     const hostRangeStart = parsed.prefix >= 31 ? parsed.network : parsed.network + 1;
     const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
     const freeSegments = computeFreeSegments(ipInt, hostRangeStart, hostRangeEnd);
 
     const colorisedIp = buildColorisedOctets(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
-    const networkDisplay = buildColorisedOctets(intToIpv4(parsed.network), parsed.prefix, INSPECTOR_COLORS);
-    const broadcastDisplay = buildColorisedOctets(intToIpv4(parsed.broadcast), parsed.prefix, INSPECTOR_COLORS);
     const boundaryBinary = buildBoundaryBinary(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
     const hostPortionNetwork = getHostPortionLabel(parsed.network, parsed.network, parsed.prefix);
     const hostPortionBroadcast = getHostPortionLabel(parsed.broadcast, parsed.network, parsed.prefix);
+    const totalHosts = totalAddresses;
 
     return {
       parsed,
@@ -152,16 +166,16 @@ function IpInspector() {
       wildcard,
       type: getAddressType(ipInt),
       ipClass: getIpv4Class(parsed.ip),
-      progress: Math.max(0, Math.min(progress, 100)),
+      progress,
+      progressRatio,
       networkAddress: intToIpv4(parsed.network),
       broadcastAddress: intToIpv4(parsed.broadcast),
       currentOctet: parsed.ip.split('.').pop(),
       leftUsable: freeSegments.left,
       rightUsable: freeSegments.right,
       inspectedIp: parsed.ip,
+      totalHosts,
       colorisedIp,
-      networkDisplay,
-      broadcastDisplay,
       boundaryBinary,
       hostPortionNetwork,
       hostPortionBroadcast,
@@ -177,11 +191,43 @@ function IpInspector() {
   // Design agent: Shows tooltips when the progress bar is hovered.
   const handleProgressEnter = () => {
     setIsProgressHovered(true);
+    setTooltipState((prev) => ({
+      ...prev,
+      isVisible: true,
+    }));
   };
 
   // Design agent: Hides tooltips when the pointer leaves the progress bar.
   const handleProgressLeave = () => {
     setIsProgressHovered(false);
+    setTooltipState((prev) => ({
+      ...prev,
+      isVisible: false,
+    }));
+  };
+
+  // Design agent: Positions a dynamic tooltip relative to the pointer.
+  const handleProgressMove = (event) => {
+    if (!progressTrackRef.current || !analysis.parsed) {
+      return;
+    }
+    const rect = progressTrackRef.current.getBoundingClientRect();
+    const relativeX = event.clientX - rect.left;
+    const relativeY = event.clientY - rect.top;
+    const ratio = rect.width === 0 ? 0 : Math.max(0, Math.min(relativeX / rect.width, 1));
+    const side = ratio <= analysis.progressRatio ? 'before' : 'after';
+    const label =
+      side === 'before'
+        ? `Number of hosts before: ${analysis.leftUsable.toLocaleString()}`
+        : `Number of hosts after: ${analysis.rightUsable.toLocaleString()}`;
+
+    setTooltipState({
+      isVisible: true,
+      x: relativeX,
+      y: relativeY,
+      label,
+      side,
+    });
   };
 
   return (
@@ -216,79 +262,58 @@ function IpInspector() {
 
             <div className="progress-wrapper">
               <div
+                ref={progressTrackRef}
                 className="progress-track"
                 onMouseEnter={handleProgressEnter}
                 onMouseLeave={handleProgressLeave}
+                onMouseMove={handleProgressMove}
               >
-                <span
-                  className="progress-host-label progress-host-label--left"
-                  style={{
-                    color: analysis.colors.host,
-                    left: `${analysis.progress}%`,
-                  }}
-                >
-                  {analysis.hostPortionNetwork}
-                </span>
-                <div
-                  className="progress-gradient"
-                  style={{ width: `${analysis.progress}%` }}
-                />
+                <div className="progress-gradient" style={{ width: `${analysis.progress}%` }} />
                 <div
                   className={`progress-indicator ${isProgressHovered ? 'is-hovered' : ''}`}
                   style={{ left: `${analysis.progress}%` }}
                 >
-                  {isProgressHovered && (
-                    <>
-                      <span className="progress-tooltip tooltip-left">
-                        {analysis.leftUsable.toLocaleString()} to network
-                      </span>
-                      <span className="progress-tooltip tooltip-right">
-                        {analysis.rightUsable.toLocaleString()} to broadcast
-                      </span>
-                    </>
-                  )}
                   <span>{analysis.currentOctet}</span>
                 </div>
-                <span
-                  className="progress-host-label progress-host-label--right"
+              </div>
+              {tooltipState.isVisible && (
+                <div
+                  className={`progress-hover-tooltip progress-hover-tooltip--${tooltipState.side}`}
                   style={{
-                    color: analysis.colors.host,
-                    left: `${analysis.progress}%`,
+                    left: `${tooltipState.x}px`,
+                    top: `${tooltipState.y}px`,
                   }}
                 >
-                  {analysis.hostPortionBroadcast}
-                </span>
-              </div>
+                  {tooltipState.label}
+                </div>
+              )}
               <div className="progress-extents">
-                <span className="endpoint">
-                  {analysis.networkDisplay.map((segment) => (
-                    <span key={`net-${segment.key}`} className="cidr-segment" style={segment.style}>
-                      {segment.value}
-                    </span>
-                  ))}
-                  <span className="cidr-separator">/</span>
-                  <span className="cidr-segment" style={{ color: analysis.colors.network }}>
-                    {analysis.prefix}
-                  </span>
-                </span>
-                <span className="endpoint endpoint--right">
-                  {analysis.broadcastDisplay.map((segment) => (
-                    <span key={`brd-${segment.key}`} className="cidr-segment" style={segment.style}>
-                      {segment.value}
-                    </span>
-                  ))}
-                </span>
+                <span className="endpoint">Net: {analysis.hostPortionNetwork}</span>
+                <span className="endpoint endpoint--right">Brd: {analysis.hostPortionBroadcast}</span>
               </div>
             </div>
 
             <div className="insight-grid">
+              {analysis.boundaryBinary && (
+                <div className="boundary-panel">
+                  <p className="insight-title">
+                    {`Boundary octet ${analysis.boundaryBinary.octetIndex + 1}`}
+                  </p>
+                  <p className="binary-octet">
+                    <span style={{ color: analysis.colors.network }}>{analysis.boundaryBinary.networkBits}</span>
+                    <span style={{ color: analysis.colors.host }}>{analysis.boundaryBinary.hostBits}</span>
+                  </p>
+                  <div className="boundary-guide" aria-hidden="true">
+                    <span className="boundary-count" style={{ color: analysis.colors.network }}>
+                      {analysis.boundaryBinary.networkBitCount}
+                    </span>
+                    <span className="boundary-pointer" />
+                  </div>
+                </div>
+              )}
               <div>
-                <p className="insight-title">Network</p>
-                <p>{analysis.networkAddress}/{analysis.prefix}</p>
-              </div>
-              <div>
-                <p className="insight-title">Broadcast</p>
-                <p>{analysis.broadcastAddress}</p>
+                <p className="insight-title">Total hosts</p>
+                <p>{analysis.totalHosts.toLocaleString()}</p>
               </div>
               <div>
                 <p className="insight-title">Mask</p>
@@ -306,15 +331,6 @@ function IpInspector() {
                 <p className="insight-title">Class</p>
                 <p>{analysis.ipClass}</p>
               </div>
-              {analysis.boundaryBinary && (
-                <div>
-                  <p className="insight-title">Boundary octet</p>
-                  <p className="binary-octet">
-                    <span style={{ color: analysis.colors.network }}>{analysis.boundaryBinary.networkBits}</span>
-                    <span style={{ color: analysis.colors.host }}>{analysis.boundaryBinary.hostBits}</span>
-                  </p>
-                </div>
-              )}
             </div>
           </>
         )}

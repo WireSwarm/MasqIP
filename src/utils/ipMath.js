@@ -1,3 +1,5 @@
+import { findIpv4Metadata } from '../data/ipAddressCatalog';
+
 // Design agent: Provides IPv4 parsing, formatting, and computation helpers used across calculators.
 const IPV4_REGEX = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
@@ -97,28 +99,15 @@ export function isValidCidr(input) {
   return Boolean(parseCidr(input));
 }
 
-// Design agent: Retrieves the type label for an IP by comparing against known ranges.
+// Design agent: Retrieves structured metadata for an IPv4 integer.
+export function getAddressMetadata(ipInt) {
+  return findIpv4Metadata(ipInt);
+}
+
+// Design agent: Preserves backward compatibility by exposing only the label.
 export function getAddressType(ipInt) {
-  const ranges = [
-    { start: ipv4ToInt('10.0.0.0'), end: ipv4ToInt('10.255.255.255'), label: 'Private (RFC1918)' },
-    { start: ipv4ToInt('172.16.0.0'), end: ipv4ToInt('172.31.255.255'), label: 'Private (RFC1918)' },
-    { start: ipv4ToInt('192.168.0.0'), end: ipv4ToInt('192.168.255.255'), label: 'Private (RFC1918)' },
-    { start: ipv4ToInt('100.64.0.0'), end: ipv4ToInt('100.127.255.255'), label: 'Carrier-Grade NAT (RFC6598)' },
-    { start: ipv4ToInt('192.0.2.0'), end: ipv4ToInt('192.0.2.255'), label: 'Documentation (TEST-NET-1)' },
-    { start: ipv4ToInt('198.51.100.0'), end: ipv4ToInt('198.51.100.255'), label: 'Documentation (TEST-NET-2)' },
-    { start: ipv4ToInt('203.0.113.0'), end: ipv4ToInt('203.0.113.255'), label: 'Documentation (TEST-NET-3)' },
-    { start: ipv4ToInt('127.0.0.0'), end: ipv4ToInt('127.255.255.255'), label: 'Loopback' },
-    { start: ipv4ToInt('169.254.0.0'), end: ipv4ToInt('169.254.255.255'), label: 'Link-Local (APIPA)' },
-    { start: ipv4ToInt('224.0.0.0'), end: ipv4ToInt('239.255.255.255'), label: 'Multicast' },
-    { start: ipv4ToInt('240.0.0.0'), end: ipv4ToInt('255.255.255.254'), label: 'Reserved' },
-    { start: ipv4ToInt('255.255.255.255'), end: ipv4ToInt('255.255.255.255'), label: 'Broadcast' },
-  ];
-  for (const range of ranges) {
-    if (ipInt >= range.start && ipInt <= range.end) {
-      return range.label;
-    }
-  }
-  return 'Public';
+  const metadata = getAddressMetadata(ipInt);
+  return metadata.label;
 }
 
 // Design agent: Calculates the usable host count for a prefix, handling edge cases like /31 and /32.
@@ -134,4 +123,3 @@ export function getTotalAddressCount(prefix) {
   const hostBits = 32 - prefix;
   return 2 ** hostBits;
 }
-

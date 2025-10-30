@@ -356,6 +356,10 @@
   padding: 0.2rem 0.55rem;
   border-radius: 999px;
   border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
 }
 
 .readable-tag.is-readable {
@@ -394,6 +398,41 @@
   background: rgba(16, 18, 34, 0.68);
   border: 1px solid rgba(140, 123, 255, 0.18);
   padding: 0.85rem 1rem;
+}
+
+/* Design agent: Arranges method two KPIs in a responsive grid. */
+.result-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem;
+  margin: 1.1rem 0 1.25rem;
+}
+
+/* Design agent: Styles individual metric entries with a subtle card treatment. */
+.result-metric {
+  padding: 0.75rem 0.95rem;
+  border-radius: 12px;
+  background: rgba(18, 20, 38, 0.65);
+  border: 1px solid rgba(140, 123, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 96px;
+}
+
+/* Design agent: Formats the metric label text. */
+.result-metric-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 234, 255, 0.58);
+}
+
+/* Design agent: Highlights the numeric metric value. */
+.result-metric-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: rgba(244, 246, 255, 0.92);
 }
 
 .ip-examples > summary {
@@ -518,6 +557,7 @@
   gap: 0.8rem;
 }
 
+/* Design agent: Styles the draggable insight progress track. */
 .progress-track {
   position: relative;
   height: 14px;
@@ -525,7 +565,13 @@
   background: linear-gradient(90deg, rgba(31, 34, 53, 0.9), rgba(12, 14, 26, 0.75));
   border: 1px solid rgba(140, 123, 255, 0.22);
   overflow: visible;
-  cursor: pointer;
+  cursor: grab;
+  transition: transform 160ms ease;
+}
+
+/* Design agent: Provides visual feedback while the insight indicator is dragged. */
+.progress-track.is-dragging {
+  cursor: grabbing;
 }
 
 .progress-gradient {
@@ -535,27 +581,55 @@
   transition: width 220ms ease;
 }
 
+/* Design agent: Hosts the host-portion bubble above the progress track. */
 .progress-indicator {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  background: var(--md-on-background);
-  color: var(--md-primary-variant);
+  background: rgba(15, 18, 32, 0.92);
+  color: var(--indicator-text, var(--md-primary-variant));
   border-radius: 16px;
-  padding: 0.35rem 0.65rem;
+  padding: 0.35rem 0.55rem;
   font-size: 0.78rem;
   font-weight: 700;
   box-shadow: 0 12px 24px -16px rgba(140, 123, 255, 0.85);
-  transition: left 220ms ease, box-shadow 200ms ease;
+  transition: left 220ms ease, box-shadow 200ms ease, background 160ms ease, color 160ms ease;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
+  min-width: var(--indicator-min, 72px);
+  justify-content: center;
 }
 
 .progress-indicator.is-hovered {
   box-shadow: 0 20px 34px -18px rgba(79, 216, 255, 0.85);
 }
 
+.progress-indicator.is-dragging {
+  box-shadow: 0 26px 38px -18px rgba(79, 70, 229, 0.45);
+}
+
+/* Design agent: Colours the host bubble according to the address classification. */
+.progress-indicator #span-bubble {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: var(--indicator-accent, var(--md-primary-variant));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--indicator-accent, var(--md-primary-variant)) 68%, transparent),
+    var(--indicator-accent, var(--md-primary-variant))
+  );
+  color: var(--indicator-text, var(--md-primary-variant));
+  text-shadow: 0 0 8px rgba(8, 10, 18, 0.4);
+  transition: color 160ms ease, background 160ms ease;
+  min-width: 3.25rem;
+  justify-content: center;
+}
+
+/* Design agent: Keeps the speech-bubble pointer aligned with the track. */
 .progress-indicator::after {
   content: '';
   position: absolute;
@@ -564,7 +638,7 @@
   transform: translateX(-50%);
   border-width: 6px 6px 0 6px;
   border-style: solid;
-  border-color: var(--md-on-background) transparent transparent transparent;
+  border-color: rgba(15, 18, 32, 0.92) transparent transparent transparent;
 }
 
 /* Design agent: Floating tooltip that follows the pointer over the progress track. */
@@ -593,6 +667,7 @@
 }
 
 
+/* Design agent: Labels the network and broadcast endpoints under the insight track. */
 .progress-extents {
   display: flex;
   justify-content: space-between;
@@ -602,6 +677,36 @@
   letter-spacing: 0.08em;
   align-items: center;
   gap: 0.75rem;
+}
+
+/* Design agent: Builds the two-column legend requested below the insight track. */
+#ipv4-insight-titles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1.15rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(232, 234, 255, 0.55);
+  margin: -0.2rem 0 0.4rem;
+}
+
+/* Design agent: Styles each legend token within the requested two-column layout. */
+.insight-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Design agent: Supplies a subtle marker to visually group legend entries. */
+.insight-legend-item::before {
+  content: '';
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: rgba(140, 123, 255, 0.4);
+  box-shadow: 0 0 0 1px rgba(140, 123, 255, 0.3) inset;
 }
 
 
@@ -758,4 +863,11 @@
   .tool-grid {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
+}
+/* Design agent: Presents auxiliary metadata such as multicast services. */
+.insight-meta {
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: rgba(244, 246, 255, 0.68);
+  font-weight: 500;
 }

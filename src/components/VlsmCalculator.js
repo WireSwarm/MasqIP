@@ -140,10 +140,14 @@ const buildExampleSegments = (address, prefix) => {
         role: 'network',
       });
     } else if (index === fullNetworkOctets && partialBits > 0) {
+      const bitSlice = [];
+      for (let bit = 0; bit < 8; bit += 1) {
+        bitSlice.push(bit < partialBits ? CIDR_COLORS.network : CIDR_COLORS.host);
+      }
       segments.push({
         key: `octet-${index}`,
         value: octet,
-        style: { color: CIDR_COLORS.network },
+        style: buildOctetGradientStyle(bitSlice),
         role: 'mixed',
       });
     } else {
@@ -650,15 +654,52 @@ function VlsmCalculator() {
   }, [exampleHostIndex, layerExampleInputs, methodTwoPlan]);
 
   // Design agent: Produces coloured segments for the resolved example address.
-  const exampleDisplaySegments = useMemo(() => {
-    if (!exampleAnalysis) {
-      return [];
-    }
-    return buildExampleSegments(exampleAnalysis.hostAddress, exampleAnalysis.networkPrefix);
-  }, [exampleAnalysis]);
+const exampleDisplaySegments = useMemo(() => {
+  if (!exampleAnalysis) {
+    return [];
+  }
+  return buildExampleSegments(exampleAnalysis.hostAddress, exampleAnalysis.networkPrefix);
+}, [exampleAnalysis]);
 
-  // Design agent: Updates the base network input for method 1.
-  const handleBaseChange = (event) => {
+// Design agent: Extracts concise KPIs for the refreshed method two metrics panel.
+const methodTwoKeyMetrics = useMemo(() => {
+  if (!methodTwoPlan || methodTwoPlan.error || methodTwoPlan.pending) {
+    return [];
+  }
+  const layerCount = methodTwoPlan.layers.length;
+  const totalLayerNetworks = methodTwoPlan.layers.reduce((sum, layer) => sum + layer.networkCount, 0);
+  const smallestLayerPrefix =
+    methodTwoPlan.layers.length > 0
+      ? methodTwoPlan.layers.reduce((minimum, layer) => Math.min(minimum, layer.prefix), MAX_SLIDER_PREFIX)
+      : methodTwoPlan.host.prefix;
+  const hostAddresses = methodTwoPlan.host.hostAddresses;
+  const hostUsable = methodTwoPlan.host.hostUsable;
+  return [
+    {
+      id: 'method-two-layers',
+      label: 'Layers planned',
+      value: layerCount.toLocaleString(),
+    },
+    {
+      id: 'method-two-smallest',
+      label: 'Smallest network',
+      value: `/${smallestLayerPrefix}`,
+    },
+    {
+      id: 'method-two-layer-networks',
+      label: 'Layer networks',
+      value: totalLayerNetworks.toLocaleString(),
+    },
+    {
+      id: 'method-two-host-pool',
+      label: 'Host remainder',
+      value: `${hostAddresses.toLocaleString()} addresses (${hostUsable.toLocaleString()} usable)`,
+    },
+  ];
+}, [methodTwoPlan]);
+
+// Design agent: Updates the base network input for method 1.
+const handleBaseChange = (event) => {
     setBaseNetwork(event.target.value);
   };
 
@@ -979,60 +1020,6 @@ function VlsmCalculator() {
               </p>
             ) : (
               <>
-                <div className="result-subheading">Plan overview</div>
-                <p className="result-summary">
-                  Supernet: {intToIpv4(methodTwoPlan.parsedBase.network)}/{methodTwoPlan.parsedBase.prefix} · host
-                  remainder /{methodTwoPlan.host.prefix}
-                </p>
-                <p className="result-summary">
-                  Host pool keeps {methodTwoPlan.host.hostBits} bit
-                  {methodTwoPlan.host.hostBits === 1 ? '' : 's'} (
-                  {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses ·{' '}
-                  {methodTwoPlan.host.hostUsable.toLocaleString()} usable).
-                </p>
-                <div className="result-subheading">Layer breakdown</div>
-                <ul className="result-list compact">
-                  {methodTwoPlan.layers.map((layer) => {
-                    const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
-                    const isReadable = layer.prefix % 8 === 0;
-                    const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
-                    const layerLabelValue = layer.label ?? '';
-                    const trimmedLayerLabel = layerLabelValue.trim();
-                    const fallbackLayerLabel = `Layer ${layer.index + 1}`;
-                    const readableLayerLabel = trimmedLayerLabel === '' ? fallbackLayerLabel : trimmedLayerLabel;
-                    return (
-                      <li key={layer.id} className="result-item layer-result-item">
-                        <div className="layer-result-header">
-                          <span className="layer-colour-chip" style={{ backgroundColor: layerColour }} />
-                          <input
-                            type="text"
-                            value={layerLabelValue}
-                            onChange={(event) => handleLayerLabelChange(layer.id, event.target.value)}
-                            onBlur={() => handleLayerLabelBlur(layer.id)}
-                            className="result-title result-title-input"
-                            aria-label={`Rename ${readableLayerLabel}`}
-                            placeholder={fallbackLayerLabel}
-                          />
-                          <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
-                            Readable: {isReadable ? 'Yes' : 'No'}
-                          </span>
-                        </div>
-                        <span className="result-meta">
-                          /{layer.prefix} · {layer.bits} bit{layer.bits === 1 ? '' : 's'} ·{' '}
-                          {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ·{' '}
-                          {layer.addressesPerNetwork.toLocaleString()} addresses
-                        </span>
-                        <span className="result-meta layer-network-meta">CIDR: /{layer.prefix}</span>
-                        {exampleSummary && (
-                          <span className="result-meta layer-network-meta">
-                            Preview network #{exampleSummary.selection}:{' '}
-                            {exampleSummary.formattedNetwork}/{layer.prefix}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
                 <div className="result-subheading result-subheading--formula">Address format</div>
                 {addressFormulaRows.length === 0 ? (
                   <p className="result-meta muted formula-placeholder">Adjust the slider to generate a readable formula.</p>
@@ -1060,7 +1047,7 @@ function VlsmCalculator() {
                   IPv6 readability tip: keep decisive half-octets outside the mask so each hexadecimal character
                   remains visible.
                 </p>
-                <details className="ip-examples">
+                <details className="ip-examples" id="method-two-address-explorer">
                   <summary>Address explorer</summary>
                   <div className="ip-examples-body">
                     <p className="ip-examples-intro">
@@ -1144,6 +1131,66 @@ function VlsmCalculator() {
                     )}
                   </div>
                 </details>
+                {methodTwoKeyMetrics.length > 0 && (
+                  <>
+                    <div className="result-subheading" id="method-two-metrics-heading">
+                      Key metrics
+                    </div>
+                    <div className="result-metric-grid" id="method-two-metrics">
+                      {methodTwoKeyMetrics.map((metric) => (
+                        <div key={metric.id} className="result-metric" id={metric.id}>
+                          <span className="result-metric-label">{metric.label}</span>
+                          <span className="result-metric-value">{metric.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="result-subheading" id="method-two-layer-breakdown-heading">
+                  Layer breakdown
+                </div>
+                <ul className="result-list compact" id="method-two-layer-breakdown">
+                  {methodTwoPlan.layers.map((layer) => {
+                    const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
+                    const isReadable = layer.prefix % 8 === 0;
+                    const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
+                    const layerLabelValue = layer.label ?? '';
+                    const trimmedLayerLabel = layerLabelValue.trim();
+                    const fallbackLayerLabel = `Layer ${layer.index + 1}`;
+                    const readableLayerLabel = trimmedLayerLabel === '' ? fallbackLayerLabel : trimmedLayerLabel;
+                    return (
+                      <li key={layer.id} className="result-item layer-result-item">
+                        <div className="layer-result-header">
+                          <span className="layer-colour-chip" style={{ backgroundColor: layerColour }} />
+                          <input
+                            type="text"
+                            value={layerLabelValue}
+                            onChange={(event) => handleLayerLabelChange(layer.id, event.target.value)}
+                            onBlur={() => handleLayerLabelBlur(layer.id)}
+                            className="result-title result-title-input"
+                            aria-label={`Rename ${readableLayerLabel}`}
+                            placeholder={fallbackLayerLabel}
+                          />
+                          <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
+                            Readable: {isReadable ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                        <span className="result-meta">
+                          /{layer.prefix} · {layer.bits} bit{layer.bits === 1 ? '' : 's'} ·{' '}
+                          {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ·{' '}
+                          {layer.addressesPerNetwork.toLocaleString()} addresses
+                        </span>
+                        <span className="result-meta layer-network-meta">CIDR: /{layer.prefix}</span>
+                        {exampleSummary && (
+                          <span className="result-meta layer-network-meta">
+                            Preview network #{exampleSummary.selection}:{' '}
+                            {exampleSummary.formattedNetwork}/{layer.prefix}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               </>
             )}
           </div>

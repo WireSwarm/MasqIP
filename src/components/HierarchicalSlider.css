@@ -60,9 +60,11 @@
   cursor: not-allowed;
 }
 
+/* Design agent: Lowers the slider rail to avoid overlapping the toolbar buttons. */
 .slider-track {
   position: relative;
   height: 78px;
+  margin-top: 0.6rem;
 }
 
 .slider-rail-track {

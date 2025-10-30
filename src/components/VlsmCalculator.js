@@ -18,6 +18,127 @@ const MAX_SLIDER_PREFIX = 32;
 const MIN_SLIDER_PREFIX = 8;
 // Design agent: Defines magnetic breakpoints that help users land on popular CIDR boundaries.
 const MAGNET_PREFIXES = [16, 24, 32];
+// Design agent: Mirrors the slider gradient so list summaries can reuse layer colours.
+const LAYER_PALETTE = ['var(--layer-color-a)', 'var(--layer-color-b)', 'var(--layer-color-c)', 'var(--layer-color-d)'];
+// Design agent: Shares the network/host highlight colors with the inspector tooltip.
+const CIDR_COLORS = { network: 'var(--layer-color-a)', host: 'var(--layer-host-color)' };
+
+// Design agent: Splits a 32-bit address into its dotted-decimal octets.
+const toOctets = (value) => [
+  (value >>> 24) & 0xff,
+  (value >>> 16) & 0xff,
+  (value >>> 8) & 0xff,
+  value & 0xff,
+];
+
+// Design agent: Builds algebraic tokens that describe how each layer contributes to every octet.
+const buildAddressFormulaOctets = (parsedSupernet, layers) => {
+  if (!parsedSupernet) {
+    return ['0', '0', '0', '0'];
+  }
+  const baseOctets = toOctets(parsedSupernet.network);
+  const formulaTerms = baseOctets.map((value) => (value === 0 ? [] : [value.toString()]));
+
+  layers.forEach((layer, index) => {
+    const label = `layer_${index + 1}_index`;
+    const blockSize = 2 ** (MAX_SLIDER_PREFIX - layer.prefix);
+    const deltas = toOctets(blockSize);
+    deltas.forEach((delta, octetIndex) => {
+      if (delta === 0) {
+        return;
+      }
+      const token = delta === 1 ? label : `${delta}×${label}`;
+      formulaTerms[octetIndex].push(token);
+    });
+  });
+
+  return formulaTerms.map((terms) => (terms.length === 0 ? '0' : terms.join(' + ')));
+};
+
+// Design agent: Produces coloured CIDR segments for an address-preview display.
+const buildExampleSegments = (address, prefix) => {
+  const octets = intToIpv4(address).split('.');
+  const fullNetworkOctets = Math.floor(prefix / 8);
+  const partialBits = prefix % 8;
+  const gradientStop = partialBits === 0 ? 0 : (partialBits / 8) * 100;
+
+  return octets.flatMap((octet, index) => {
+    const segments = [];
+    if (index < fullNetworkOctets) {
+      segments.push({
+        key: `octet-${index}`,
+        value: octet,
+        style: { color: CIDR_COLORS.network },
+      });
+    } else if (index === fullNetworkOctets && partialBits > 0) {
+      segments.push({
+        key: `octet-${index}`,
+        value: octet,
+        style: {
+          backgroundImage: `linear-gradient(90deg, ${CIDR_COLORS.network} ${gradientStop}%, ${CIDR_COLORS.host} ${gradientStop}%)`,
+          backgroundClip: 'text',
+          WebkitBackgroundClip: 'text',
+          color: 'transparent',
+          WebkitTextFillColor: 'transparent',
+        },
+      });
+    } else {
+      segments.push({
+        key: `octet-${index}`,
+        value: octet,
+        style: { color: CIDR_COLORS.host },
+      });
+    }
+
+    if (index < octets.length - 1) {
+      segments.push({
+        key: `dot-${index}`,
+        value: '.',
+        style: { color: 'inherit' },
+      });
+    }
+    return segments;
+  });
+};
+
+// Design agent: Colours algebraic octet expressions to reflect network versus host coverage.
+const buildFormulaSegments = (octets, prefix) => {
+  const fullNetworkOctets = Math.floor(prefix / 8);
+  const partialBits = prefix % 8;
+  const gradientStop = partialBits === 0 ? 0 : (partialBits / 8) * 100;
+
+  return octets.flatMap((octet, index) => {
+    let style = { color: CIDR_COLORS.host };
+    if (index < fullNetworkOctets) {
+      style = { color: CIDR_COLORS.network };
+    } else if (index === fullNetworkOctets && partialBits > 0) {
+      style = {
+        backgroundImage: `linear-gradient(90deg, ${CIDR_COLORS.network} ${gradientStop}%, ${CIDR_COLORS.host} ${gradientStop}%)`,
+        backgroundClip: 'text',
+        WebkitBackgroundClip: 'text',
+        color: 'transparent',
+        WebkitTextFillColor: 'transparent',
+      };
+    }
+
+    const segments = [
+      {
+        key: `formula-octet-${index}`,
+        value: octet,
+        style,
+      },
+    ];
+
+    if (index < octets.length - 1) {
+      segments.push({
+        key: `formula-dot-${index}`,
+        value: '.',
+        style: { color: 'inherit' },
+      });
+    }
+    return segments;
+  });
+};
 
 // Design agent: Normalises subnet rows to keep a single empty trailing entry with defaults.
 const normaliseHostRows = (rows) => {
@@ -70,23 +191,19 @@ const sanitiseHandles = (handles, basePrefix) => {
     return [];
   }
 
-  const sorted = normalisedHandles.sort((a, b) => a.prefix - b.prefix);
-  const result = [];
-  let cursor = minimum;
+  const clipped = normalisedHandles.map((handle) => ({
+    ...handle,
+    prefix: Math.min(MAX_SLIDER_PREFIX, Math.max(handle.prefix, minimum)),
+  }));
 
-  for (const handle of sorted) {
-    const clampedPrefix = Math.min(MAX_SLIDER_PREFIX, Math.max(handle.prefix, cursor));
-    result.push({
-      ...handle,
-      prefix: clampedPrefix,
-    });
-    cursor = clampedPrefix;
-    if (result.length === MAX_LAYER_COUNT) {
-      break;
+  const sorted = [...clipped].sort((a, b) => {
+    if (a.prefix === b.prefix) {
+      return a.id.localeCompare(b.id);
     }
-  }
+    return a.prefix - b.prefix;
+  });
 
-  return result;
+  return sorted.slice(0, MAX_LAYER_COUNT);
 };
 
 // Design agent: Summarises the number of networks produced per layer and the remaining host pool.
@@ -137,6 +254,10 @@ function VlsmCalculator() {
   const [pathSupernet, setPathSupernet] = useState('');
   const handleIdRef = useRef(1);
   const [layerHandles, setLayerHandles] = useState([{ id: 'layer-0', prefix: 24 }]);
+  // Design agent: Stores the selected network index per layer for the IP example helper.
+  const [layerExampleInputs, setLayerExampleInputs] = useState(['1']);
+  // Design agent: Tracks the host index requested in the IP example helper.
+  const [exampleHostIndex, setExampleHostIndex] = useState('1');
   const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
 
@@ -174,6 +295,24 @@ function VlsmCalculator() {
       return previous;
     });
   }, [parsedSupernet]);
+
+  // Design agent: Keeps the IP example layer selections in sync with the slider layer count.
+  useEffect(() => {
+    setLayerExampleInputs((previous) => {
+      const desiredLength = Math.max(0, layerHandles.length);
+      if (desiredLength === previous.length) {
+        return previous;
+      }
+      const trimmed = previous.slice(0, desiredLength);
+      while (trimmed.length < desiredLength) {
+        trimmed.push('1');
+      }
+      if (trimmed.length === previous.length && trimmed.every((value, index) => value === previous[index])) {
+        return previous;
+      }
+      return trimmed;
+    });
+  }, [layerHandles.length]);
 
   // Design agent: Focuses a subnet host field and places the caret at the end.
   const focusHostField = (index) => {
@@ -325,6 +464,95 @@ function VlsmCalculator() {
     };
   }, [layerHandles, methodTwoPlan, parsedSupernet]);
 
+  // Design agent: Prepares the algebraic string used to describe the addressing pattern.
+  const addressFormulaOctets = useMemo(() => {
+    if (!methodTwoPlan || methodTwoPlan.error || methodTwoPlan.pending) {
+      return null;
+    }
+    return buildAddressFormulaOctets(methodTwoPlan.parsedBase, methodTwoPlan.layers);
+  }, [methodTwoPlan]);
+
+  // Design agent: Determines the prefix applied to the formatted expression.
+  const addressFormatPrefix = useMemo(() => {
+    if (!methodTwoPlan || methodTwoPlan.error || methodTwoPlan.pending) {
+      return null;
+    }
+    if (methodTwoPlan.layers.length === 0) {
+      return methodTwoPlan.basePrefix;
+    }
+    return methodTwoPlan.layers[methodTwoPlan.layers.length - 1].prefix;
+  }, [methodTwoPlan]);
+
+  // Design agent: Converts the algebraic octets into coloured CIDR segments.
+  const addressFormatSegments = useMemo(() => {
+    if (!addressFormulaOctets || addressFormatPrefix == null) {
+      return [];
+    }
+    return buildFormulaSegments(addressFormulaOctets, addressFormatPrefix);
+  }, [addressFormulaOctets, addressFormatPrefix]);
+
+  // Design agent: Evaluates the concrete IP example based on layer and host selections.
+  const exampleAnalysis = useMemo(() => {
+    if (!methodTwoPlan || methodTwoPlan.error || methodTwoPlan.pending) {
+      return null;
+    }
+
+    const layers = methodTwoPlan.layers;
+    const selections = layers.map((layer, index) => {
+      const raw = layerExampleInputs[index] ?? '';
+      const parsed = Number(raw);
+      if (Number.isNaN(parsed) || parsed < 1) {
+        return 1;
+      }
+      return Math.min(parsed, layer.networkCount);
+    });
+
+    const hostCapacity =
+      layers.length > 0 ? layers[layers.length - 1].addressesPerNetwork : methodTwoPlan.host.hostAddresses;
+    const rawHost = Number(exampleHostIndex);
+    const clampedHost = Number.isNaN(rawHost) || rawHost < 1 ? 1 : Math.min(rawHost, hostCapacity);
+
+    let address = methodTwoPlan.parsedBase.network;
+    const layerSummaries = [];
+
+    selections.forEach((selection, index) => {
+      const layer = layers[index];
+      if (!layer) {
+        return;
+      }
+      const blockSize = 2 ** (MAX_SLIDER_PREFIX - layer.prefix);
+      const increment = (selection - 1) * blockSize;
+      address += increment;
+      layerSummaries.push({
+        selection,
+        prefix: layer.prefix,
+        networkAddress: address,
+        formattedNetwork: intToIpv4(address),
+      });
+    });
+
+    const networkAddress = address;
+    const finalPrefix = layers.length > 0 ? layers[layers.length - 1].prefix : methodTwoPlan.host.prefix;
+    const hostAddress = networkAddress + Math.max(0, clampedHost - 1);
+
+    return {
+      networkAddress,
+      networkPrefix: finalPrefix,
+      hostAddress,
+      hostIndex: clampedHost,
+      layerSummaries,
+      hostCapacity,
+    };
+  }, [exampleHostIndex, layerExampleInputs, methodTwoPlan]);
+
+  // Design agent: Produces coloured segments for the resolved example address.
+  const exampleDisplaySegments = useMemo(() => {
+    if (!exampleAnalysis) {
+      return [];
+    }
+    return buildExampleSegments(exampleAnalysis.hostAddress, exampleAnalysis.networkPrefix);
+  }, [exampleAnalysis]);
+
   // Design agent: Updates the base network input for method 1.
   const handleBaseChange = (event) => {
     setBaseNetwork(event.target.value);
@@ -433,6 +661,22 @@ function VlsmCalculator() {
       const trimmed = [...prev].sort((a, b) => a.prefix - b.prefix).slice(0, -1);
       return sanitiseHandles(trimmed, basePrefix);
     });
+  };
+
+  // Design agent: Updates the requested network index for a specific layer example.
+  const handleExampleLayerChange = (index, rawValue) => {
+    const digits = rawValue.replace(/[^\d]/g, '');
+    setLayerExampleInputs((prev) => {
+      const next = [...prev];
+      next[index] = digits;
+      return next;
+    });
+  };
+
+  // Design agent: Stores the requested host index while allowing the user to clear the field.
+  const handleExampleHostChange = (rawValue) => {
+    const digits = rawValue.replace(/[^\d]/g, '');
+    setExampleHostIndex(digits);
   };
 
   return (
@@ -615,25 +859,138 @@ function VlsmCalculator() {
                   {methodTwoPlan.host.hostUsable.toLocaleString()} usable).
                 </p>
                 <ul className="result-list compact">
-                  {methodTwoPlan.layers.map((layer) => (
-                    <li key={layer.index} className="result-item">
-                      <span className="result-title">Layer {layer.index + 1}</span>
-                      <span className="result-meta">
-                        /{layer.prefix} · {layer.bits} bit{layer.bits === 1 ? '' : 's'} ·{' '}
-                        {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ×{' '}
-                        {layer.addressesPerNetwork.toLocaleString()} addresses
-                      </span>
-                    </li>
-                  ))}
+                  {methodTwoPlan.layers.map((layer) => {
+                    const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
+                    const isReadable = layer.prefix % 8 === 0;
+                    const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
+                    return (
+                      <li key={layer.index} className="result-item layer-result-item">
+                        <div className="layer-result-header">
+                          <span className="layer-colour-chip" style={{ backgroundColor: layerColour }} />
+                          <span className="result-title">Layer {layer.index + 1}</span>
+                          <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
+                            Readable: {isReadable ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                        <span className="result-meta">
+                          /{layer.prefix} · {layer.bits} bit{layer.bits === 1 ? '' : 's'} ·{' '}
+                          {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ·{' '}
+                          {layer.addressesPerNetwork.toLocaleString()} addresses
+                        </span>
+                        <span className="result-meta layer-network-meta">
+                          Network base: {intToIpv4(methodTwoPlan.parsedBase.network)}/{layer.prefix}
+                        </span>
+                        {exampleSummary && (
+                          <span className="result-meta layer-network-meta">
+                            Example #{exampleSummary.selection}: {exampleSummary.formattedNetwork}/{layer.prefix}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
                   <li className="result-item">
-                    <span className="result-title">Host allocation</span>
-                    <span className="result-meta">
-                      Remainder /{methodTwoPlan.host.prefix} ·{' '}
-                      {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses (
-                      {methodTwoPlan.host.hostUsable.toLocaleString()} usable)
-                    </span>
+                    <span className="result-title">Address format</span>
+                    {addressFormatSegments.length === 0 || addressFormatPrefix == null ? (
+                      <span className="result-meta muted">Adjust the slider to generate a readable formula.</span>
+                    ) : (
+                      <div className="cidr-display cidr-display--formula" aria-label="Address format">
+                        <span className="cidr-prefix">Formula</span>
+                        <span className="cidr-octets">
+                          {addressFormatSegments.map((segment) => (
+                            <span key={segment.key} className="cidr-segment" style={segment.style}>
+                              {segment.value}
+                            </span>
+                          ))}
+                        </span>
+                        <span className="cidr-separator">/</span>
+                        <span className="cidr-segment" style={{ color: CIDR_COLORS.network }}>
+                          {addressFormatPrefix}
+                        </span>
+                      </div>
+                    )}
                   </li>
                 </ul>
+                <p className="result-note">
+                  IPv6 readability tip: keep decisive half-octets outside the mask so each hexadecimal character
+                  remains visible.
+                </p>
+                <details className="ip-examples">
+                  <summary>IP examples</summary>
+                  <div className="ip-examples-body">
+                    <p className="ip-examples-intro">
+                      Choose network indices per layer and optionally a host index to preview the resulting address.
+                    </p>
+                    <div className="ip-examples-grid">
+                      {methodTwoPlan.layers.map((layer, index) => {
+                        const value = layerExampleInputs[index] ?? '';
+                        const exampleSummary = exampleAnalysis?.layerSummaries?.[index];
+                        return (
+                          <label key={layer.id} className="field ip-examples-field">
+                            <span>
+                              Layer {index + 1} network{' '}
+                              <span
+                                className="layer-colour-chip inline"
+                                style={{ backgroundColor: LAYER_PALETTE[index % LAYER_PALETTE.length] }}
+                              />
+                            </span>
+                            <input
+                              value={value}
+                              onChange={(event) => handleExampleLayerChange(index, event.target.value)}
+                              placeholder="e.g. 5"
+                              className="field-input"
+                              inputMode="numeric"
+                              aria-describedby={`layer-${layer.id}-hint`}
+                            />
+                            <span id={`layer-${layer.id}-hint`} className="field-hint">
+                              Up to {layer.networkCount.toLocaleString()} networks
+                            </span>
+                            {exampleSummary && (
+                              <span className="field-hint">
+                                Resolves to {exampleSummary.formattedNetwork}/{layer.prefix}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                      <label className="field ip-examples-field">
+                        <span>Host index</span>
+                        <input
+                          value={exampleHostIndex}
+                          onChange={(event) => handleExampleHostChange(event.target.value)}
+                          placeholder="e.g. 23"
+                          className="field-input"
+                          inputMode="numeric"
+                          aria-describedby="host-index-hint"
+                        />
+                        <span id="host-index-hint" className="field-hint">
+                          Up to {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses
+                        </span>
+                      </label>
+                    </div>
+                    {exampleAnalysis && (
+                      <div className="ip-examples-result">
+                        <div className="cidr-display cidr-display--formula" aria-label="Resolved example address">
+                          <span className="cidr-prefix">Result</span>
+                          <span className="cidr-octets">
+                            {exampleDisplaySegments.map((segment) => (
+                              <span key={segment.key} className="cidr-segment" style={segment.style}>
+                                {segment.value}
+                              </span>
+                            ))}
+                          </span>
+                          <span className="cidr-separator">/</span>
+                          <span className="cidr-segment" style={{ color: CIDR_COLORS.network }}>
+                            {exampleAnalysis.networkPrefix}
+                          </span>
+                        </div>
+                        <p className="result-meta">
+                          Host #{exampleAnalysis.hostIndex.toLocaleString()} within network{' '}
+                          {intToIpv4(exampleAnalysis.networkAddress)}/{exampleAnalysis.networkPrefix}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </details>
               </>
             )}
           </div>

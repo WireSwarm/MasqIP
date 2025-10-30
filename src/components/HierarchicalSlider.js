@@ -41,6 +41,13 @@ function HierarchicalSlider({
 }) {
   const railRef = useRef(null);
   const [dragState, setDragState] = useState(null);
+  // Design agent: Maintains live hover tooltip metadata for network availability feedback.
+  const [hoverState, setHoverState] = useState({
+    isVisible: false,
+    x: 0,
+    y: 0,
+    label: '',
+  });
 
   // Design agent: Ensures magnet anchors stay ordered for predictable snapping.
   const magnetPoints = useMemo(() => {
@@ -86,6 +93,43 @@ function HierarchicalSlider({
     };
   }, [dragState, handles, supernetPrefix]);
 
+  // Design agent: Builds logical segments so the hover tooltip can expose network and host counts.
+  const segmentMetrics = useMemo(() => {
+    const range = Math.max(0.0001, TRACK_MAX_PREFIX - supernetPrefix);
+    const segments = [];
+    const sorted = [...handles].sort((a, b) => a.prefix - b.prefix);
+    let previousPrefix = supernetPrefix;
+    let previousPercent = 0;
+
+    sorted.forEach((handle, index) => {
+      const paintPrefix = resolvePaintPrefix(handle, dragState, supernetPrefix);
+      const boundedPrefix = Math.min(TRACK_MAX_PREFIX, Math.max(previousPrefix, paintPrefix));
+      const bits = Math.max(0, boundedPrefix - previousPrefix);
+      const nextPercent = Math.max(previousPercent, ((boundedPrefix - supernetPrefix) / range) * 100);
+      segments.push({
+        type: 'layer',
+        id: handle.id,
+        index,
+        startPercent: previousPercent,
+        endPercent: Math.min(100, nextPercent),
+        networkCount: Math.max(1, 2 ** bits),
+      });
+      previousPrefix = boundedPrefix;
+      previousPercent = nextPercent;
+    });
+
+    const remainderBits = Math.max(0, TRACK_MAX_PREFIX - previousPrefix);
+    const hostAddresses = Math.max(1, 2 ** remainderBits);
+    segments.push({
+      type: 'host',
+      startPercent: previousPercent,
+      endPercent: 100,
+      hostAddresses,
+    });
+
+    return { range, segments };
+  }, [dragState, handles, supernetPrefix]);
+
   // Design agent: Builds tick marks that highlight key CIDR checkpoints.
   const scaleMarks = useMemo(() => {
     const marks = new Set([Math.round(supernetPrefix), TRACK_MAX_PREFIX]);
@@ -121,7 +165,9 @@ function HierarchicalSlider({
       const elapsed = Math.max(1, now - dragState.lastTime);
       const delta = Math.abs(rawPrefix - dragState.visualPrefix);
       const speed = (delta / elapsed) * 1000;
-      const magnetThreshold = Math.min(2.5, Math.max(0.12, speed * 0.18));
+      const baseThreshold = Math.max(0.04, (speed ** 1.15) * 0.1);
+      const slowReduction = speed < 0.85 ? (0.85 - speed) * 0.32 : 0;
+      const magnetThreshold = Math.min(1.5, Math.max(0.04, baseThreshold - slowReduction));
 
       let candidate = rawPrefix;
       if (magnetPoints.length > 0) {
@@ -192,6 +238,82 @@ function HierarchicalSlider({
     });
   };
 
+  // Design agent: Computes the tooltip text and coordinates while hovering over the slider rail.
+  const handleRailHover = (event) => {
+    if (!railRef.current || disabled) {
+      setHoverState((previous) =>
+        previous.isVisible
+          ? {
+              ...previous,
+              isVisible: false,
+            }
+          : previous,
+      );
+      return;
+    }
+    const rect = railRef.current.getBoundingClientRect();
+    if (rect.width <= 0) {
+      return;
+    }
+    const relativeX = Math.min(rect.width, Math.max(0, event.clientX - rect.left));
+    const ratioPercent = rect.width === 0 ? 0 : (relativeX / rect.width) * 100;
+    const segment = segmentMetrics.segments.find(
+      (candidate) => ratioPercent >= candidate.startPercent && ratioPercent <= candidate.endPercent,
+    );
+    if (!segment) {
+      setHoverState((previous) =>
+        previous.isVisible
+          ? {
+              ...previous,
+              isVisible: false,
+            }
+          : previous,
+      );
+      return;
+    }
+    let label;
+    if (segment.type === 'layer') {
+      label = `Layer ${segment.index + 1}: ${segment.networkCount.toLocaleString()} network${
+        segment.networkCount === 1 ? '' : 's'
+      }`;
+    } else {
+      label = `Host pool: ${segment.hostAddresses.toLocaleString()} available hosts`;
+    }
+    setHoverState({
+      isVisible: true,
+      x: relativeX,
+      y: rect.height / 2,
+      label,
+    });
+  };
+
+  // Design agent: Hides the tooltip when the pointer exits the slider rail.
+  const handleRailLeave = () => {
+    setHoverState((previous) =>
+      previous.isVisible
+        ? {
+            ...previous,
+            isVisible: false,
+          }
+        : previous,
+    );
+  };
+
+  // Design agent: Prevents stale tooltips from lingering when the slider is disabled.
+  useEffect(() => {
+    if (!disabled) {
+      return;
+    }
+    setHoverState((previous) =>
+      previous.isVisible
+        ? {
+            ...previous,
+            isVisible: false,
+          }
+        : previous,
+    );
+  }, [disabled]);
+
   return (
     <div className={`hierarchical-slider${disabled ? ' is-disabled' : ''}`}>
       <div className="slider-toolbar">
@@ -220,9 +342,15 @@ function HierarchicalSlider({
         </div>
       </div>
       <div className="slider-track">
-        <div className="slider-rail" ref={railRef}>
+        <div
+          className="slider-rail"
+          ref={railRef}
+          onMouseMove={handleRailHover}
+          onMouseEnter={handleRailHover}
+          onMouseLeave={handleRailLeave}
+        >
           <div className="slider-track-fill" style={trackStyle} />
-          {sortedHandles.map((handle) => {
+          {sortedHandles.map((handle, index) => {
             const activePercent =
               dragState && dragState.id === handle.id
                 ? prefixToPercent(dragState.visualPrefix, supernetPrefix)
@@ -239,12 +367,24 @@ function HierarchicalSlider({
               style={{ left: `${activePercent}%` }}
               onPointerDown={(event) => beginDrag(event, handle)}
               disabled={disabled}
+              aria-label={`Layer ${index + 1} boundary set to /${activeLabel}`}
             >
               <span className="slider-handle-label">/{activeLabel}</span>
             </button>
             );
           })}
           <div className="slider-track-overlay" />
+          {hoverState.isVisible && (
+            <div
+              className="slider-hover-tooltip"
+              style={{
+                left: `${hoverState.x}px`,
+                top: `${hoverState.y}px`,
+              }}
+            >
+              {hoverState.label}
+            </div>
+          )}
         </div>
       </div>
       <div className="slider-scale">

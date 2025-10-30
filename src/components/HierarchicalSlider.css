@@ -75,8 +75,23 @@
   height: 14px;
   border-radius: 999px;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 16px 30px -18px rgba(12, 10, 40, 0.95);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 18px 34px -18px rgba(16, 18, 46, 0.85);
+}
+
+.slider-hover-tooltip {
+  position: absolute;
+  transform: translate(-50%, -135%);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(18, 21, 42, 0.92);
+  color: rgba(250, 251, 255, 0.9);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 14px 28px -18px rgba(12, 14, 36, 0.9);
 }
 
 .slider-track-overlay {
@@ -94,29 +109,46 @@
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  background: rgba(9, 10, 21, 0.9);
-  color: var(--md-on-surface);
-  font-weight: 600;
+  width: 0.85rem;
+  height: 3.1rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(66, 70, 105, 0.45);
+  background: linear-gradient(180deg, rgba(244, 246, 255, 0.94), rgba(208, 214, 236, 0.88));
+  color: var(--md-primary);
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .slider-handle:enabled:hover {
-  transform: translate(-50%, -50%) scale(1.08);
-  box-shadow: 0 12px 26px -18px rgba(140, 123, 255, 0.6);
+  transform: translate(-50%, -50%) scaleX(1.1);
+  border-color: rgba(82, 92, 140, 0.85);
+  box-shadow: 0 18px 30px -20px rgba(96, 105, 185, 0.65);
 }
 
 .slider-handle:disabled {
   cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.slider-handle:focus-visible {
+  outline: none;
+  border-color: var(--md-primary);
+  box-shadow:
+    0 0 0 3px rgba(124, 95, 255, 0.28),
+    0 18px 30px -20px rgba(96, 105, 185, 0.65);
 }
 
 .slider-handle-label {
   position: absolute;
-  top: -1.65rem;
+  top: -2.25rem;
   left: 50%;
   transform: translateX(-50%);
   font-size: 0.75rem;
@@ -150,4 +182,3 @@
   height: 6px;
   background: rgba(232, 234, 255, 0.25);
 }
-

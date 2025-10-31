@@ -1014,6 +1014,42 @@ const handleBaseChange = (event) => {
                   IPv6 readability tip: keep decisive half-octets outside the mask so each hexadecimal character
                   remains visible.
                 </p>
+                {/* Design agent: Remove Key Metrics section as requested and surface the layer breakdown before exploration tools. */}
+                <div className="result-subheading" id="method-two-layer-breakdown-heading">
+                  Layer breakdown
+                </div>
+                <ul className="result-list compact" id="method-two-layer-breakdown">
+                  {methodTwoPlan.layers.map((layer) => {
+                    const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
+                    const isReadable = layer.prefix % 8 === 0;
+                    const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
+                    const layerLabelValue = layer.label ?? '';
+                    const trimmedLayerLabel = layerLabelValue.trim();
+                    const fallbackLayerLabel = `Layer ${layer.index + 1}`;
+                    const readableLayerLabel = trimmedLayerLabel === '' ? fallbackLayerLabel : trimmedLayerLabel;
+                    return (
+                      <li key={layer.id} className="result-item layer-result-item">
+                        <div className="layer-result-header">
+                          <span className="layer-colour-chip" style={{ backgroundColor: layerColour }} />
+                          <input
+                            type="text"
+                            value={layerLabelValue}
+                            onChange={(event) => handleLayerLabelChange(layer.id, event.target.value)}
+                            onBlur={() => handleLayerLabelBlur(layer.id)}
+                            className="result-title result-title-input"
+                            aria-label={`Rename ${readableLayerLabel}`}
+                            placeholder={fallbackLayerLabel}
+                          />
+                          <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
+                            Readable: {isReadable ? 'Yes' : 'No'}
+                          </span>
+                        </div>
+                        {/* Design agent: result-meta removed per requirements. */}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {/* Design agent: Address Explorer follows the breakdown for contextual flow. */}
                 <details className="ip-examples" id="method-two-address-explorer">
                   <summary id="method-two-address-explorer-summary">Address explorer</summary>
                   <div className="ip-examples-body">
@@ -1098,41 +1134,6 @@ const handleBaseChange = (event) => {
                     )}
                   </div>
                 </details>
-                {/* Design agent: Remove Key Metrics section as requested. */}
-                <div className="result-subheading" id="method-two-layer-breakdown-heading">
-                  Layer breakdown
-                </div>
-                <ul className="result-list compact" id="method-two-layer-breakdown">
-                  {methodTwoPlan.layers.map((layer) => {
-                    const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
-                    const isReadable = layer.prefix % 8 === 0;
-                    const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
-                    const layerLabelValue = layer.label ?? '';
-                    const trimmedLayerLabel = layerLabelValue.trim();
-                    const fallbackLayerLabel = `Layer ${layer.index + 1}`;
-                    const readableLayerLabel = trimmedLayerLabel === '' ? fallbackLayerLabel : trimmedLayerLabel;
-                    return (
-                      <li key={layer.id} className="result-item layer-result-item">
-                        <div className="layer-result-header">
-                          <span className="layer-colour-chip" style={{ backgroundColor: layerColour }} />
-                          <input
-                            type="text"
-                            value={layerLabelValue}
-                            onChange={(event) => handleLayerLabelChange(layer.id, event.target.value)}
-                            onBlur={() => handleLayerLabelBlur(layer.id)}
-                            className="result-title result-title-input"
-                            aria-label={`Rename ${readableLayerLabel}`}
-                            placeholder={fallbackLayerLabel}
-                          />
-                          <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
-                            Readable: {isReadable ? 'Yes' : 'No'}
-                          </span>
-                        </div>
-                        {/* Design agent: result-meta removed per requirements. */}
-                      </li>
-                    );
-                  })}
-                </ul>
               </>
             )}
           </div>

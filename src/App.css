@@ -67,6 +67,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  align-items: flex-start;
 }
 
 .brand-title {
@@ -189,9 +190,13 @@
   flex: 1;
 }
 
+/* Design agent: Keep the multiplier input within the visible bounds on compact screens. */
 .multiplier-input {
-  max-width: 130px;
+  max-width: 100%;
+  width: clamp(92px, 26vw, 130px);
   text-align: center;
+  flex: 0 1 clamp(92px, 26vw, 130px);
+  box-sizing: border-box;
 }
 
 .count-input {
@@ -378,8 +383,9 @@
   margin-left: 0.35rem;
 }
 
+/* Design agent: Anchor the readability flag to the left for uniform scanning. */
 .readable-tag {
-  margin-left: auto;
+  margin-left: 0;
   font-size: 0.78rem;
   font-weight: 600;
   padding: 0.2rem 0.55rem;
@@ -387,8 +393,10 @@
   border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 0.25rem;
   white-space: nowrap;
+  align-self: flex-start;
 }
 
 .readable-tag.is-readable {
@@ -596,6 +604,7 @@
   overflow: visible;
   cursor: grab;
   transition: transform 160ms ease;
+  touch-action: none;
 }
 
 /* Design agent: Provides visual feedback while the insight indicator is dragged. */
@@ -608,66 +617,6 @@
   inset: 0;
   background: linear-gradient(90deg, rgba(140, 123, 255, 0.8), rgba(111, 95, 255, 0.65));
   transition: width 220ms ease;
-}
-
-/* Design agent: Hosts the host-portion bubble above the progress track. */
-.progress-indicator {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(15, 18, 32, 0.92);
-  color: var(--indicator-text, var(--md-primary-variant));
-  border-radius: 16px;
-  padding: 0.35rem 0.55rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-  box-shadow: 0 12px 24px -16px rgba(140, 123, 255, 0.85);
-  transition: left 220ms ease, box-shadow 200ms ease, background 160ms ease, color 160ms ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: var(--indicator-min, 72px);
-  justify-content: center;
-}
-
-.progress-indicator.is-hovered {
-  box-shadow: 0 20px 34px -18px rgba(79, 216, 255, 0.85);
-}
-
-.progress-indicator.is-dragging {
-  box-shadow: 0 26px 38px -18px rgba(79, 70, 229, 0.45);
-}
-
-/* Design agent: Colours the host bubble according to the address classification. */
-.progress-indicator #span-bubble {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.2rem 0.65rem;
-  font-weight: 600;
-  border-radius: 999px;
-  background: var(--indicator-accent, var(--md-primary-variant));
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--indicator-accent, var(--md-primary-variant)) 68%, transparent),
-    var(--indicator-accent, var(--md-primary-variant))
-  );
-  color: var(--indicator-text, var(--md-primary-variant));
-  text-shadow: 0 0 8px rgba(8, 10, 18, 0.4);
-  transition: color 160ms ease, background 160ms ease;
-  min-width: 3.25rem;
-  justify-content: center;
-}
-
-/* Design agent: Keeps the speech-bubble pointer aligned with the track. */
-.progress-indicator::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 6px 6px 0 6px;
-  border-style: solid;
-  border-color: rgba(15, 18, 32, 0.92) transparent transparent transparent;
 }
 
 /* Design agent: Floating tooltip that follows the pointer over the progress track. */
@@ -720,23 +669,7 @@
   margin: -0.2rem 0 0.4rem;
 }
 
-/* Design agent: Styles each legend token within the requested two-column layout. */
-.insight-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-/* Design agent: Supplies a subtle marker to visually group legend entries. */
-.insight-legend-item::before {
-  content: '';
-  display: inline-block;
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 50%;
-  background: rgba(140, 123, 255, 0.4);
-  box-shadow: 0 0 0 1px rgba(140, 123, 255, 0.3) inset;
-}
+/* Design agent: Insight legend styles retired alongside component removal. */
 
 
 .cidr-display {
@@ -859,8 +792,22 @@
 
 .insight-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 1.1rem;
+}
+
+@media (max-width: 520px) {
+  /* Design agent: Maintain a two-column insight grid on mid-sized widths. */
+  .insight-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 320px) {
+  /* Design agent: Collapse to a single column only on very small devices. */
+  .insight-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .insight-title {
@@ -917,48 +864,57 @@
 .layer-result-header { flex-wrap: wrap; }
 .result-title { word-break: break-word; }
 
-/* White bubble styling for the movable progress indicator; ensure movement + look. */
+/* Design agent: Elevates the movable progress indicator to mirror the hierarchical slider handle. */
 .progress-indicator {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  background: #ffffff;
-  color: #0f1320;
-  border-radius: 16px;
-  padding: 0.35rem 0.55rem;
-  font-size: 0.78rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), color-mix(in srgb, var(--indicator-accent, #4f46e5) 18%, rgba(255, 255, 255, 0.9)));
+  color: var(--indicator-text, #0f1320);
+  border-radius: 20px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
-  box-shadow: 0 14px 24px -14px rgba(0, 0, 0, 0.45);
-  transition: left 220ms ease, box-shadow 200ms ease, background 160ms ease, color 160ms ease;
+  box-shadow: 0 22px 38px -20px rgba(17, 13, 38, 0.55);
+  transition: left 220ms ease, transform 200ms ease, box-shadow 220ms ease;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  min-width: var(--indicator-min, 72px);
+  min-width: max(3.5rem, var(--indicator-min, 72px));
   justify-content: center;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  cursor: grab;
+  user-select: none;
 }
-.progress-indicator.is-hovered { box-shadow: 0 18px 30px -16px rgba(0,0,0,0.45); }
-.progress-indicator.is-dragging { box-shadow: 0 24px 36px -18px rgba(0,0,0,0.5); }
+.progress-indicator.is-hovered {
+  transform: translate(-50%, -52%);
+  box-shadow: 0 28px 44px -22px rgba(17, 13, 38, 0.6);
+}
+.progress-indicator.is-dragging {
+  cursor: grabbing;
+  box-shadow: 0 30px 48px -18px rgba(17, 13, 38, 0.62);
+  transform: translate(-50%, -54%);
+}
 .progress-indicator #span-bubble {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.65rem;
+  padding: 0.25rem 0.7rem;
   font-weight: 600;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--indicator-accent, #4f46e5) 12%, #ffffff);
+  background: color-mix(in srgb, var(--indicator-accent, #4f46e5) 28%, rgba(255, 255, 255, 0.9));
   color: var(--indicator-accent, #4f46e5);
-  min-width: 3.25rem;
+  min-width: 3.5rem;
   justify-content: center;
 }
 .progress-indicator::after {
   content: '';
   position: absolute;
-  bottom: -6px;
+  bottom: -7px;
   left: 50%;
   transform: translateX(-50%);
-  border-width: 6px 6px 0 6px;
+  border-width: 7px 7px 0 7px;
   border-style: solid;
-  border-color: #ffffff transparent transparent transparent;
+  border-color: rgba(255, 255, 255, 0.92) transparent transparent transparent;
 }
 
 /* Make Address Explorer summary clickable across full width */

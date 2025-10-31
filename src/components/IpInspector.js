@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   formatMask,
   formatWildcard,
@@ -161,6 +161,8 @@ function IpInspector() {
   });
   // Design agent: References the progress track for tooltip alignment.
   const progressTrackRef = useRef(null);
+  // Design agent: Maintains pointer metadata during indicator drags for smooth updates.
+  const [indicatorDrag, setIndicatorDrag] = useState(null);
 
   // Design agent: Derives interpreted metrics for the current input.
   const analysis = useMemo(() => {
@@ -242,17 +244,6 @@ function IpInspector() {
   }, [input]);
 
   // Design agent: Lists insight labels for the legend displayed beneath the progress bar.
-  const insightLegend = useMemo(() => {
-    if (!analysis.parsed) {
-      return [];
-    }
-    const baseTitles = ['Total hosts', 'Mask', 'Wildcard', 'Type', 'Class'];
-    if (analysis.boundaryBinary) {
-      return [`Boundary octet ${analysis.boundaryBinary.octetIndex + 1}`, ...baseTitles];
-    }
-    return baseTitles;
-  }, [analysis.boundaryBinary, analysis.parsed]);
-
   // Design agent: Handles changes within the IPv4/CIDR input control.
   const handleChange = (event) => {
     setInput(event.target.value);
@@ -301,7 +292,7 @@ function IpInspector() {
   };
 
   // Design agent: Updates the inspected address when the indicator is dragged.
-  const updateAddressFromPointer = (clientX) => {
+  const updateAddressFromPointer = useCallback((clientX) => {
     if (!progressTrackRef.current || !analysis.parsed) {
       return;
     }
@@ -318,7 +309,7 @@ function IpInspector() {
       return;
     }
     setInput(nextValue);
-  };
+  }, [analysis.parsed, input]);
 
   // Design agent: Begins interactive dragging of the host indicator.
   const handleTrackPointerDown = (event) => {
@@ -326,16 +317,14 @@ function IpInspector() {
       return;
     }
     event.preventDefault();
+    setIndicatorDrag({ pointerId: event.pointerId });
     setIsIndicatorDragging(true);
-    if (event.currentTarget.setPointerCapture) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
     updateAddressFromPointer(event.clientX);
   };
 
   // Design agent: Moves the host indicator as the pointer travels across the bar.
   const handleTrackPointerMove = (event) => {
-    if (!isIndicatorDragging) {
+    if (!isIndicatorDragging || !indicatorDrag || event.pointerId !== indicatorDrag.pointerId) {
       return;
     }
     updateAddressFromPointer(event.clientX);
@@ -343,11 +332,44 @@ function IpInspector() {
 
   // Design agent: Ends dragging and releases the pointer capture when appropriate.
   const handleTrackPointerUp = (event) => {
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!indicatorDrag || event.pointerId !== indicatorDrag.pointerId) {
+      return;
     }
+    setIndicatorDrag(null);
     setIsIndicatorDragging(false);
   };
+
+  // Design agent: Mirrors the hierarchical slider's drag wiring to maintain smooth pointer tracking.
+  useEffect(() => {
+    if (!indicatorDrag) {
+      return undefined;
+    }
+
+    const handleWindowMove = (event) => {
+      if (event.pointerId !== indicatorDrag.pointerId) {
+        return;
+      }
+      updateAddressFromPointer(event.clientX);
+    };
+
+    const handleWindowUp = (event) => {
+      if (event.pointerId !== indicatorDrag.pointerId) {
+        return;
+      }
+      setIndicatorDrag(null);
+      setIsIndicatorDragging(false);
+    };
+
+    window.addEventListener('pointermove', handleWindowMove);
+    window.addEventListener('pointerup', handleWindowUp);
+    window.addEventListener('pointercancel', handleWindowUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handleWindowMove);
+      window.removeEventListener('pointerup', handleWindowUp);
+      window.removeEventListener('pointercancel', handleWindowUp);
+    };
+  }, [indicatorDrag, updateAddressFromPointer]);
 
   return (
     <div className="column-content" id="ipv4-insight-panel">
@@ -408,6 +430,10 @@ function IpInspector() {
                     isIndicatorDragging ? ' is-dragging' : ''
                   }`}
                   id="ipv4-progress-indicator"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    handleTrackPointerDown(event);
+                  }}
                   style={{
                     left: `${analysis.progress}%`,
                     '--indicator-accent': analysis.indicatorAccent,
@@ -447,16 +473,6 @@ function IpInspector() {
                 </span>
               </div>
             </div>
-
-            {insightLegend.length > 0 && (
-              <div className="insight-legend" id="ipv4-insight-titles" aria-label="Insight labels">
-                {insightLegend.map((label, index) => (
-                  <span key={`insight-label-${index}`} className="insight-legend-item" id={`insight-label-${index}`}>
-                    {label}
-                  </span>
-                ))}
-              </div>
-            )}
 
             <div className="insight-grid" id="ipv4-insight-columns">
               {analysis.boundaryBinary && (

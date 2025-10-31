@@ -47,72 +47,20 @@
   gap: clamp(1.1rem, 2vw, 1.75rem);
 }
 
-/* Design agent: Builds a luminous halo around the logo to reinforce MasqIP's ambient brand energy. */
-.brand-logo-shell {
-  position: relative;
-  display: grid;
-  place-items: center;
-  padding: clamp(0.85rem, 2.5vw, 1.25rem);
-  border-radius: 32px;
-  background:
-    radial-gradient(circle at 28% 24%, rgba(143, 119, 255, 0.45), transparent 60%),
-    radial-gradient(circle at 70% 74%, rgba(79, 216, 255, 0.3), transparent 65%),
-    linear-gradient(145deg, rgba(13, 16, 29, 0.92) 0%, rgba(7, 11, 20, 0.62) 100%);
-  box-shadow:
-    0 28px 55px -28px rgba(16, 22, 54, 0.9),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-  isolation: isolate;
-}
-
-/* Design agent: Animates orbital light sweeps that imply ongoing packet flow. */
-.brand-logo-shell::before {
-  content: "";
-  position: absolute;
-  inset: -55%;
-  background: conic-gradient(
-    from 120deg,
-    rgba(140, 123, 255, 0.15),
-    rgba(56, 189, 248, 0.45),
-    rgba(129, 140, 248, 0.05),
-    rgba(140, 123, 255, 0.15)
-  );
-  filter: blur(18px);
-  opacity: 0.8;
-  animation: brand-logo-orbit 18s linear infinite;
-  z-index: -1;
-}
-
-/* Design agent: Adds a static highlight to keep the logo readable against the animated halo. */
-.brand-logo-shell::after {
-  content: "";
-  position: absolute;
-  inset: 12%;
-  border-radius: 28px;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(111, 95, 255, 0.04) 55%,
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  z-index: 0;
-}
-
 .brand-logo {
   width: clamp(64px, 11vw, 92px);
   height: auto;
   flex-shrink: 0;
-  filter: drop-shadow(0 20px 32px rgba(14, 165, 233, 0.35)) drop-shadow(0 8px 16px rgba(88, 28, 135, 0.22));
+  filter: drop-shadow(0 18px 26px rgba(15, 23, 42, 0.45));
   position: relative;
   z-index: 1;
-  transition: transform 260ms ease, filter 260ms ease;
+  transition: transform 220ms ease, filter 220ms ease;
 }
 
-/* Design agent: Introduces subtle motion feedback as users hover the hero zone. */
-.brand-logo-shell:hover .brand-logo {
-  transform: translateY(-4px) scale(1.02);
-  filter: drop-shadow(0 24px 42px rgba(14, 165, 233, 0.4)) drop-shadow(0 12px 24px rgba(88, 28, 135, 0.3));
+/* Design agent: Provides a restrained hover lift to keep the mark feeling interactive without added framing. */
+.brand-logo:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 20px 30px rgba(15, 23, 42, 0.5));
 }
 
 .brand-text {
@@ -936,24 +884,6 @@
   }
 }
 
-/* Design agent: Keeps the orbital sweep fluid without sudden resets for long-run viewing. */
-@keyframes brand-logo-orbit {
-  0% {
-    transform: rotate(0deg) scale(1);
-    opacity: 0.75;
-  }
-  35% {
-    opacity: 0.88;
-  }
-  70% {
-    opacity: 0.7;
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-    opacity: 0.75;
-  }
-}
-
 @media (max-width: 840px) {
   .app-surface {
     padding: 2.75rem 1.25rem;
@@ -961,10 +891,6 @@
 
   .brand-identity {
     gap: 1rem;
-  }
-
-  .brand-logo-shell {
-    padding: 0.75rem;
   }
 
   .brand-logo {

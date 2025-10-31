@@ -183,16 +183,17 @@ function RouteSummarizer() {
   };
 
   return (
-    <div className="column-content">
-      <div className="field-group">
-        <span className="field-group-label">Networks to summarise</span>
+    <div className="column-content" id="summarizer-root">
+      <div className="field-group" id="summarizer-field-group">
+        <span className="field-group-label" id="summarizer-field-label">Networks to summarise</span>
         {routes.map((value, index) => (
-          <label key={index} className="field">
-            <span>Network {index + 1}</span>
+          <label key={index} className="field" id={`summarizer-field-${index}`}>
+            <span id={`summarizer-input-label-${index}`}>Network {index + 1}</span>
             <input
               ref={(element) => {
                 inputRefs.current[index] = element;
               }}
+              id={`summarizer-input-${index}`}
               value={value}
               placeholder="e.g. 192.168.10.0/24"
               className="field-input"
@@ -203,15 +204,19 @@ function RouteSummarizer() {
         ))}
       </div>
 
-      <div className="result-card">
+      <div className="result-card" id="summarizer-results">
         {summary.error ? (
-          <p className="error-text">{summary.error}</p>
+          <p className="error-text" id="summarizer-error">{summary.error}</p>
         ) : (
-          <div className="result-summary">
-            <p>{summary.label || `Routes entered: ${summary.networks}`}</p>
-            {summary.summary && <p className="result-highlight">Route summary: {summary.summary}</p>}
-            <p className="result-meta">{summary.inheritanceMessage}</p>
-            {summary.assumptionNote && <p className="result-meta">{summary.assumptionNote}</p>}
+          <div className="result-summary" id="summarizer-summary">
+            <p id="summarizer-summary-label">{summary.label || `Routes entered: ${summary.networks}`}</p>
+            {summary.summary && (
+              <p className="result-highlight" id="summarizer-summary-result">Route summary: {summary.summary}</p>
+            )}
+            <p className="result-meta" id="summarizer-inheritance">{summary.inheritanceMessage}</p>
+            {summary.assumptionNote && (
+              <p className="result-meta" id="summarizer-assumption">{summary.assumptionNote}</p>
+            )}
           </div>
         )}
       </div>
@@ -220,3 +225,5 @@ function RouteSummarizer() {
 }
 
 export default RouteSummarizer;
+// Design agent: Also export named for import flexibility and IDE refactors.
+export { RouteSummarizer };

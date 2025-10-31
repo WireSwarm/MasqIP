@@ -468,10 +468,25 @@ function IpInspector() {
                     <span style={{ color: analysis.colors.network }}>{analysis.boundaryBinary.networkBits}</span>
                     <span style={{ color: analysis.colors.host }}>{analysis.boundaryBinary.hostBits}</span>
                   </p>
-                  <div className="boundary-guide" aria-hidden="true">
-                    <span className="boundary-count" style={{ color: analysis.colors.network }}>
-                      {analysis.boundaryBinary.cidrEquation}
-                    </span>
+                  <div className="boundary-guide" aria-hidden="true" id="ipv4-boundary-cidr-equation">
+                    {/* Design agent: Color only the digit after '+', keep the rest neutral. */}
+                    {(() => {
+                      const eq = analysis.boundaryBinary.cidrEquation; // e.g. "/26 = 24 + 2"
+                      const plusIndex = eq.indexOf('+');
+                      if (plusIndex === -1) {
+                        return (
+                          <span className="boundary-count">{eq}</span>
+                        );
+                      }
+                      const before = eq.slice(0, plusIndex + 1); // up to '+'
+                      const after = eq.slice(plusIndex + 1).trim(); // digits after '+'
+                      return (
+                        <span className="boundary-count">
+                          <span>{before} </span>
+                          <span style={{ color: analysis.colors.network }}>{after}</span>
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -509,4 +524,6 @@ function IpInspector() {
 }
 
 export default IpInspector;
+// Design agent: Also export named for import flexibility and IDE refactors.
+export { IpInspector };
 

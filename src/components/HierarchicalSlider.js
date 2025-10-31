@@ -392,3 +392,5 @@ function HierarchicalSlider({
 }
 
 export default HierarchicalSlider;
+// Design agent: Also export named for import flexibility and IDE refactors.
+export { HierarchicalSlider };

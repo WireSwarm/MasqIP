@@ -236,10 +236,11 @@ const normaliseHostRows = (rows) => {
 
   for (const row of rows) {
     const trimmedHosts = row.hosts.trim();
-    const multiplier = row.multiplier.trim() === '' ? '1' : row.multiplier;
+    // Design agent: Keep multiplier visually empty when not provided.
+    const multiplier = row.multiplier.trim() === '' ? '' : row.multiplier;
     if (trimmedHosts === '') {
       if (!hasTrailingEmpty) {
-        normalised.push({ hosts: '', multiplier: '1' });
+        normalised.push({ hosts: '', multiplier: '' });
         hasTrailingEmpty = true;
       }
     } else {
@@ -252,7 +253,7 @@ const normaliseHostRows = (rows) => {
   }
 
   if (!hasTrailingEmpty && normalised.length < MAX_SUBNET_FIELDS) {
-    normalised.push({ hosts: '', multiplier: '1' });
+    normalised.push({ hosts: '', multiplier: '' });
   }
 
   return normalised;
@@ -339,7 +340,8 @@ const buildSliderPlan = (parsedSupernet, handles) => {
 // Design agent: Implements hierarchical IPv4 planning with multiplier support and path-based schemes.
 function VlsmCalculator() {
   const [baseNetwork, setBaseNetwork] = useState('');
-  const [hostInputs, setHostInputs] = useState([{ hosts: '', multiplier: '1' }]);
+  // Design agent: Start with empty multiplier; treat blank as 1 internally, but do not prefill visually.
+  const [hostInputs, setHostInputs] = useState([{ hosts: '', multiplier: '' }]);
   const [mode, setMode] = useState('method1');
   const [pathSupernet, setPathSupernet] = useState('');
   const handleIdRef = useRef(1);
@@ -662,41 +664,7 @@ const exampleDisplaySegments = useMemo(() => {
 }, [exampleAnalysis]);
 
 // Design agent: Extracts concise KPIs for the refreshed method two metrics panel.
-const methodTwoKeyMetrics = useMemo(() => {
-  if (!methodTwoPlan || methodTwoPlan.error || methodTwoPlan.pending) {
-    return [];
-  }
-  const layerCount = methodTwoPlan.layers.length;
-  const totalLayerNetworks = methodTwoPlan.layers.reduce((sum, layer) => sum + layer.networkCount, 0);
-  const smallestLayerPrefix =
-    methodTwoPlan.layers.length > 0
-      ? methodTwoPlan.layers.reduce((minimum, layer) => Math.min(minimum, layer.prefix), MAX_SLIDER_PREFIX)
-      : methodTwoPlan.host.prefix;
-  const hostAddresses = methodTwoPlan.host.hostAddresses;
-  const hostUsable = methodTwoPlan.host.hostUsable;
-  return [
-    {
-      id: 'method-two-layers',
-      label: 'Layers planned',
-      value: layerCount.toLocaleString(),
-    },
-    {
-      id: 'method-two-smallest',
-      label: 'Smallest network',
-      value: `/${smallestLayerPrefix}`,
-    },
-    {
-      id: 'method-two-layer-networks',
-      label: 'Layer networks',
-      value: totalLayerNetworks.toLocaleString(),
-    },
-    {
-      id: 'method-two-host-pool',
-      label: 'Host remainder',
-      value: `${hostAddresses.toLocaleString()} addresses (${hostUsable.toLocaleString()} usable)`,
-    },
-  ];
-}, [methodTwoPlan]);
+// Design agent: Key Metrics removed per requirements.
 
 // Design agent: Updates the base network input for method 1.
 const handleBaseChange = (event) => {
@@ -953,13 +921,12 @@ const handleBaseChange = (event) => {
                             </span>
                             <ul className="result-sublist">
                               {visibleAllocations.map((allocation, instanceIndex) => (
-                                <li key={instanceIndex} className="result-subitem">
-                                  <span className="result-title">
+                                <li key={instanceIndex} className="result-subitem" id={`method1-subnet-${index}-${instanceIndex}`}>
+                                  <span className="result-title" id={`method1-subnet-title-${index}-${instanceIndex}`}>
                                     Plan {instanceIndex + 1}: {intToIpv4(allocation.network)}/{allocation.prefix}
                                   </span>
-                                  <span className="result-meta">
-                                    Range {intToIpv4(allocation.network)} – {intToIpv4(allocation.broadcast)} · mask{' '}
-                                    {formatMask(maskFromPrefix(allocation.prefix))}
+                                  <span className="result-meta" id={`method1-subnet-meta-${index}-${instanceIndex}`}>
+                                    Range {intToIpv4(allocation.network)} - {intToIpv4(allocation.broadcast)} · mask {formatMask(maskFromPrefix(allocation.prefix))}
                                   </span>
                                 </li>
                               ))}
@@ -1048,7 +1015,7 @@ const handleBaseChange = (event) => {
                   remains visible.
                 </p>
                 <details className="ip-examples" id="method-two-address-explorer">
-                  <summary>Address explorer</summary>
+                  <summary id="method-two-address-explorer-summary">Address explorer</summary>
                   <div className="ip-examples-body">
                     <p className="ip-examples-intro">
                       Choose network indices per layer and optionally a host index to preview the resulting address.
@@ -1131,21 +1098,7 @@ const handleBaseChange = (event) => {
                     )}
                   </div>
                 </details>
-                {methodTwoKeyMetrics.length > 0 && (
-                  <>
-                    <div className="result-subheading" id="method-two-metrics-heading">
-                      Key metrics
-                    </div>
-                    <div className="result-metric-grid" id="method-two-metrics">
-                      {methodTwoKeyMetrics.map((metric) => (
-                        <div key={metric.id} className="result-metric" id={metric.id}>
-                          <span className="result-metric-label">{metric.label}</span>
-                          <span className="result-metric-value">{metric.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                {/* Design agent: Remove Key Metrics section as requested. */}
                 <div className="result-subheading" id="method-two-layer-breakdown-heading">
                   Layer breakdown
                 </div>
@@ -1175,18 +1128,7 @@ const handleBaseChange = (event) => {
                             Readable: {isReadable ? 'Yes' : 'No'}
                           </span>
                         </div>
-                        <span className="result-meta">
-                          /{layer.prefix} · {layer.bits} bit{layer.bits === 1 ? '' : 's'} ·{' '}
-                          {layer.networkCount.toLocaleString()} network{layer.networkCount === 1 ? '' : 's'} ·{' '}
-                          {layer.addressesPerNetwork.toLocaleString()} addresses
-                        </span>
-                        <span className="result-meta layer-network-meta">CIDR: /{layer.prefix}</span>
-                        {exampleSummary && (
-                          <span className="result-meta layer-network-meta">
-                            Preview network #{exampleSummary.selection}:{' '}
-                            {exampleSummary.formattedNetwork}/{layer.prefix}
-                          </span>
-                        )}
+                        {/* Design agent: result-meta removed per requirements. */}
                       </li>
                     );
                   })}
@@ -1201,3 +1143,15 @@ const handleBaseChange = (event) => {
 }
 
 export default VlsmCalculator;
+// Design agent: Also export named for import flexibility and IDE refactors.
+export { VlsmCalculator };
+
+
+
+
+
+
+
+
+
+

@@ -186,17 +186,25 @@
   align-items: center;
 }
 
-.field-row .field-input {
-  flex: 1;
+.field-row .field-input:not(.multiplier-input) {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Design agent: Keep the multiplier input within the visible bounds on compact screens. */
-.multiplier-input {
+.field-row .multiplier-input {
   max-width: 100%;
   width: clamp(92px, 26vw, 130px);
   text-align: center;
   flex: 0 1 clamp(92px, 26vw, 130px);
   box-sizing: border-box;
+}
+
+@media (max-width: 520px) {
+  .multiplier-input {
+    width: 100%; /* Take full width when stacked */
+    flex-grow: 1;
+  }
 }
 
 .count-input {

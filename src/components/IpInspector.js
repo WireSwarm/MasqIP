@@ -240,6 +240,7 @@ function IpInspector() {
       indicatorTextColor,
       indicatorScale,
       colors: INSPECTOR_COLORS,
+      currentOctet: parsed.ip.split('.').pop(),
     };
   }, [input]);
 
@@ -371,6 +372,8 @@ function IpInspector() {
     };
   }, [indicatorDrag, updateAddressFromPointer]);
 
+  const activeProgress = indicatorDrag ? indicatorDrag.visualProgress : analysis.progress;
+
   return (
     <div className="column-content" id="ipv4-insight-panel">
       <label className="field" htmlFor="ipv4-cidr-input" id="ipv4-insight-input-label">
@@ -423,25 +426,14 @@ function IpInspector() {
                 <div
                   className="progress-gradient"
                   id="ipv4-insight-progress-gradient"
-                  style={{ width: `${analysis.progress}%` }}
+                  style={{ width: `${activeProgress}%` }}
                 />
                 <div
-                  className={`progress-indicator${isProgressHovered ? ' is-hovered' : ''}${
-                    isIndicatorDragging ? ' is-dragging' : ''
-                  }`}
+                  className={`progress-indicator ${isProgressHovered ? 'is-hovered' : ''}`}
                   id="ipv4-progress-indicator"
-                  onPointerDown={(event) => {
-                    event.stopPropagation();
-                    handleTrackPointerDown(event);
-                  }}
-                  style={{
-                    left: `${analysis.progress}%`,
-                    '--indicator-accent': analysis.indicatorAccent,
-                    '--indicator-text': analysis.indicatorTextColor,
-                    '--indicator-min': `${analysis.indicatorScale}px`,
-                  }}
+                  style={{ left: `${activeProgress}%` }}
                 >
-                  <span id="span-bubble">{analysis.hostPortionCurrent}</span>
+                  <span>{analysis.currentOctet}</span>
                 </div>
               </div>
               {tooltipState.isVisible && (
@@ -460,14 +452,14 @@ function IpInspector() {
                 <span
                   className="endpoint"
                   id="ipv4-endpoint-network"
-                  style={{ color: 'var(--layer-color-b)' }}
+                  style={{ color: analysis.colors.network }}
                 >
                   NET: {analysis.hostPortionNetwork}
                 </span>
                 <span
                   className="endpoint endpoint--right"
                   id="ipv4-endpoint-broadcast"
-                  style={{ color: 'var(--layer-color-c)' }}
+                  style={{ color: analysis.colors.host }}
                 >
                   BRD: {analysis.hostPortionBroadcast}
                 </span>
@@ -542,4 +534,3 @@ function IpInspector() {
 export default IpInspector;
 // Design agent: Also export named for import flexibility and IDE refactors.
 export { IpInspector };
-

@@ -436,6 +436,17 @@
 .cidr-display--formula {
   margin-top: 0.5rem;
   width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.cidr-display--formula .cidr-octets {
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  font-size: var(--formula-font-size, 1.1rem);
+  white-space: normal;
 }
 
 .ip-examples {
@@ -602,12 +613,11 @@
   gap: 0.8rem;
 }
 
-/* Design agent: Styles the draggable insight progress track. */
 .progress-track {
   position: relative;
   height: 14px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(31, 34, 53, 0.9), rgba(12, 14, 26, 0.75));
+  background: var(--layer-host-color); /* Orange for the right side */
   border: 1px solid rgba(140, 123, 255, 0.22);
   overflow: visible;
   cursor: grab;
@@ -623,8 +633,40 @@
 .progress-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(140, 123, 255, 0.8), rgba(111, 95, 255, 0.65));
+  background: var(--md-primary); /* Violet for the left side */
   transition: width 220ms ease;
+}
+
+.progress-indicator {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--md-on-background);
+  color: var(--md-primary-variant);
+  border-radius: 16px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  box-shadow: 0 12px 24px -16px rgba(140, 123, 255, 0.85);
+  transition: left 220ms ease, box-shadow 200ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.progress-indicator.is-hovered {
+  box-shadow: 0 20px 34px -18px rgba(79, 216, 255, 0.85);
+}
+
+.progress-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px 6px 0 6px;
+  border-style: solid;
+  border-color: var(--md-on-background) transparent transparent transparent;
 }
 
 /* Design agent: Floating tooltip that follows the pointer over the progress track. */
@@ -653,7 +695,6 @@
 }
 
 
-/* Design agent: Labels the network and broadcast endpoints under the insight track. */
 .progress-extents {
   display: flex;
   justify-content: space-between;
@@ -664,20 +705,6 @@
   align-items: center;
   gap: 0.75rem;
 }
-
-/* Design agent: Builds the two-column legend requested below the insight track. */
-#ipv4-insight-titles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 1.15rem;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: rgba(232, 234, 255, 0.55);
-  margin: -0.2rem 0 0.4rem;
-}
-
-/* Design agent: Insight legend styles retired alongside component removal. */
 
 
 .cidr-display {
@@ -876,52 +903,6 @@
 /* Prevent method 1 list titles from overflowing at narrow widths. */
 .layer-result-header { flex-wrap: wrap; }
 .result-title { word-break: break-word; }
-
-/* Design agent: Elevates the movable progress indicator to mirror the hierarchical slider handle. */
-.progress-indicator {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 0.85rem;
-  height: 3.1rem;
-  border-radius: 0.55rem;
-  border: 1px solid rgba(66, 70, 105, 0.45);
-  background: linear-gradient(180deg, rgba(244, 246, 255, 0.94), rgba(208, 214, 236, 0.88));
-  color: var(--md-primary);
-  font-weight: 700;
-  cursor: grab;
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    border-color 160ms ease,
-    background 160ms ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-}
-.progress-indicator.is-hovered {
-  transform: translate(-50%, -50%) scaleX(1.1);
-  border-color: rgba(82, 92, 140, 0.85);
-  box-shadow: 0 18px 30px -20px rgba(96, 105, 185, 0.65);
-}
-.progress-indicator.is-dragging {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scaleX(1.1);
-  border-color: rgba(82, 92, 140, 0.85);
-  box-shadow: 0 18px 30px -20px rgba(96, 105, 185, 0.65);
-}
-.progress-indicator #span-bubble {
-  position: absolute;
-  top: -2.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: rgba(232, 234, 255, 0.75);
-  white-space: nowrap;
-}
 
 /* Make Address Explorer summary clickable across full width */
 details.ip-examples > summary {

@@ -613,28 +613,38 @@
   gap: 0.8rem;
 }
 
+/* Design agent: Base gradient anchors network/host colours before runtime calculations. */
 .progress-track {
   position: relative;
   height: 14px;
   border-radius: 999px;
-  background: var(--layer-host-color); /* Orange for the right side */
+  background: linear-gradient(90deg, #4F46E5 0%, #4F46E5 50%, #F97316 50%, #F97316 100%);
   border: 1px solid rgba(140, 123, 255, 0.22);
   overflow: visible;
-  cursor: grab;
-  transition: transform 160ms ease;
-  touch-action: none;
+  /* Design agent: Track is informational only, so keep a neutral cursor and ease background. */
+  cursor: default;
+  transition: background 220ms ease;
 }
 
-/* Design agent: Provides visual feedback while the insight indicator is dragged. */
-.progress-track.is-dragging {
-  cursor: grabbing;
-}
-
-.progress-gradient {
+/* Design agent: Highlights the usable host window within the track. */
+.progress-host-window {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(76, 29, 149, 0.18), rgba(15, 118, 110, 0.18));
+  pointer-events: none;
+}
+
+/* Design agent: Fills the host window to visualise inspected host progression. */
+.progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
   background: var(--md-primary); /* Violet for the left side */
-  transition: width 220ms ease;
+  transition: width 220ms ease, left 220ms ease;
+  pointer-events: none;
 }
 
 .progress-indicator {

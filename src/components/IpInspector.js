@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   formatMask,
   formatWildcard,
@@ -149,8 +149,6 @@ const getHostPortionLabel = (addressInt, prefix) => {
 function IpInspector() {
   const [input, setInput] = useState('');
   const [isProgressHovered, setIsProgressHovered] = useState(false);
-  // Design agent: Tracks whether the progress indicator is currently being dragged.
-  const [isIndicatorDragging, setIsIndicatorDragging] = useState(false);
   // Design agent: Stores live tooltip metadata for the progress bar.
   const [tooltipState, setTooltipState] = useState({
     isVisible: false,
@@ -161,8 +159,6 @@ function IpInspector() {
   });
   // Design agent: References the progress track for tooltip alignment.
   const progressTrackRef = useRef(null);
-  // Design agent: Maintains pointer metadata during indicator drags for smooth updates.
-  const [indicatorDrag, setIndicatorDrag] = useState(null);
 
   // Design agent: Derives interpreted metrics for the current input.
   const analysis = useMemo(() => {
@@ -185,12 +181,46 @@ function IpInspector() {
     const mask = formatMask(parsed.mask);
     const wildcard = formatWildcard(parsed.mask);
     const clampedIp = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
-    const hostSpan = parsed.broadcast - parsed.network;
-    const rawProgress = hostSpan === 0 ? 1 : (clampedIp - parsed.network) / hostSpan;
-    const progressRatio = Math.max(0, Math.min(rawProgress, 1));
-    const progress = progressRatio * 100;
     const hostRangeStart = parsed.prefix >= 31 ? parsed.network : parsed.network + 1;
     const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
+    // Design agent: Count only usable hosts so the slider represents actual assignable endpoints.
+    const usableHostCount = hostRangeEnd < hostRangeStart ? 0 : hostRangeEnd - hostRangeStart + 1;
+    const clampedHostAddress =
+      usableHostCount <= 0
+        ? hostRangeStart
+        : Math.min(Math.max(clampedIp, hostRangeStart), hostRangeEnd);
+    const hostIndex = usableHostCount <= 0 ? 0 : clampedHostAddress - hostRangeStart;
+    const hostProgressRatio = usableHostCount <= 1 ? 0 : hostIndex / (usableHostCount - 1);
+    const hostProgressPercent = hostProgressRatio * 100;
+    const totalRange = parsed.broadcast - parsed.network;
+    // Design agent: Map usable host spans back onto the visual track to preserve network/broadcast context.
+    const hostWindowStartRatio =
+      totalRange === 0
+        ? 0
+        : Math.max(0, Math.min(1, (hostRangeStart - parsed.network) / totalRange));
+    const hostWindowEndRatio =
+      totalRange === 0
+        ? 1
+        : Math.max(0, Math.min(1, (hostRangeEnd - parsed.network) / totalRange));
+    const hostWindowWidthRatio = Math.max(0, hostWindowEndRatio - hostWindowStartRatio);
+    // Design agent: Preserve host-space placement for interaction feedback.
+    const hostIndicatorRatio =
+      hostWindowWidthRatio === 0
+        ? hostWindowStartRatio
+        : hostWindowStartRatio + hostProgressRatio * hostWindowWidthRatio;
+    // Design agent: Position the indicator against the full network span.
+    const networkTrackRatio =
+      totalRange === 0
+        ? 0
+        : Math.max(0, Math.min(1, (clampedIp - parsed.network) / totalRange));
+    // Design agent: Clamp proportional positioning to the track bounds to avoid overflow.
+    const indicatorTrackPercent = Math.min(100, Math.max(0, networkTrackRatio * 100));
+    const hostWindowStartPercent = hostWindowStartRatio * 100;
+    const hostWindowWidthPercent = hostWindowWidthRatio * 100;
+    const hostFillPercent =
+      hostWindowWidthRatio === 0 ? 0 : hostWindowWidthPercent * hostProgressRatio;
+    // Design agent: Split the track gradient so the left segment tracks the network portion.
+    const trackGradient = `linear-gradient(90deg, ${INSPECTOR_COLORS.network} 0%, ${INSPECTOR_COLORS.network} ${indicatorTrackPercent}%, ${INSPECTOR_COLORS.host} ${indicatorTrackPercent}%, ${INSPECTOR_COLORS.host} 100%)`;
     const freeSegments = computeFreeSegments(ipInt, hostRangeStart, hostRangeEnd);
     const isNetworkAddress = ipInt === parsed.network;
     const isBroadcastAddress = ipInt === parsed.broadcast;
@@ -205,7 +235,9 @@ function IpInspector() {
       ? 'var(--layer-color-c)'
       : INSPECTOR_COLORS.host;
     const hostBits = Math.max(0, 32 - parsed.prefix);
-    const totalHosts = totalAddresses;
+    // Design agent: Report the usable host count so UI metrics align with the progress bar.
+    const totalHosts =
+      parsed.prefix >= 31 ? totalAddresses : Math.max(0, totalAddresses - 2);
     const indicatorScale = Math.max(64, Math.min(240, 48 + hostBits * 12));
     const indicatorTextColor = isNetworkAddress
       ? 'var(--layer-color-b)'
@@ -221,8 +253,17 @@ function IpInspector() {
       type: metadata.label,
       addressMetadata: metadata,
       ipClass: getIpv4Class(parsed.ip),
-      progress,
-      progressRatio,
+      hostProgressPercent,
+      hostProgressRatio,
+      indicatorTrackPercent,
+      indicatorTrackRatio: networkTrackRatio,
+      hostIndicatorRatio,
+      hostWindowStartPercent,
+      hostWindowWidthPercent,
+      hostFillPercent,
+      trackGradient,
+      usableHostCount,
+      hostIndex,
       networkAddress: intToIpv4(parsed.network),
       broadcastAddress: intToIpv4(parsed.broadcast),
       leftUsable: freeSegments.left,
@@ -277,7 +318,7 @@ function IpInspector() {
     const relativeX = event.clientX - rect.left;
     const relativeY = event.clientY - rect.top;
     const ratio = rect.width === 0 ? 0 : Math.max(0, Math.min(relativeX / rect.width, 1));
-    const side = ratio <= analysis.progressRatio ? 'before' : 'after';
+    const side = ratio <= analysis.hostIndicatorRatio ? 'before' : 'after';
     const label =
       side === 'before'
         ? `Number of hosts before: ${analysis.leftUsable.toLocaleString()}`
@@ -292,87 +333,20 @@ function IpInspector() {
     });
   };
 
-  // Design agent: Updates the inspected address when the indicator is dragged.
-  const updateAddressFromPointer = useCallback((clientX) => {
-    if (!progressTrackRef.current || !analysis.parsed) {
-      return;
-    }
-    if (analysis.parsed.network === analysis.parsed.broadcast) {
-      return;
-    }
-    const rect = progressTrackRef.current.getBoundingClientRect();
-    const ratio = rect.width === 0 ? 0 : Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
-    const rangeSize = analysis.parsed.broadcast - analysis.parsed.network;
-    const rawAddress = analysis.parsed.network + Math.round(rangeSize * ratio);
-    const clamped = Math.max(analysis.parsed.network, Math.min(rawAddress, analysis.parsed.broadcast));
-    const nextValue = `${intToIpv4(clamped)}/${analysis.parsed.prefix}`;
-    if (nextValue === input) {
-      return;
-    }
-    setInput(nextValue);
-  }, [analysis.parsed, input]);
-
-  // Design agent: Begins interactive dragging of the host indicator.
-  const handleTrackPointerDown = (event) => {
-    if (!analysis.parsed || analysis.parsed.network === analysis.parsed.broadcast) {
-      return;
-    }
-    event.preventDefault();
-    setIndicatorDrag({ pointerId: event.pointerId });
-    setIsIndicatorDragging(true);
-    updateAddressFromPointer(event.clientX);
-  };
-
-  // Design agent: Moves the host indicator as the pointer travels across the bar.
-  const handleTrackPointerMove = (event) => {
-    if (!isIndicatorDragging || !indicatorDrag || event.pointerId !== indicatorDrag.pointerId) {
-      return;
-    }
-    updateAddressFromPointer(event.clientX);
-  };
-
-  // Design agent: Ends dragging and releases the pointer capture when appropriate.
-  const handleTrackPointerUp = (event) => {
-    if (!indicatorDrag || event.pointerId !== indicatorDrag.pointerId) {
-      return;
-    }
-    setIndicatorDrag(null);
-    setIsIndicatorDragging(false);
-  };
-
-  // Design agent: Mirrors the hierarchical slider's drag wiring to maintain smooth pointer tracking.
-  useEffect(() => {
-    if (!indicatorDrag) {
-      return undefined;
-    }
-
-    const handleWindowMove = (event) => {
-      if (event.pointerId !== indicatorDrag.pointerId) {
-        return;
-      }
-      updateAddressFromPointer(event.clientX);
-    };
-
-    const handleWindowUp = (event) => {
-      if (event.pointerId !== indicatorDrag.pointerId) {
-        return;
-      }
-      setIndicatorDrag(null);
-      setIsIndicatorDragging(false);
-    };
-
-    window.addEventListener('pointermove', handleWindowMove);
-    window.addEventListener('pointerup', handleWindowUp);
-    window.addEventListener('pointercancel', handleWindowUp);
-
-    return () => {
-      window.removeEventListener('pointermove', handleWindowMove);
-      window.removeEventListener('pointerup', handleWindowUp);
-      window.removeEventListener('pointercancel', handleWindowUp);
-    };
-  }, [indicatorDrag, updateAddressFromPointer]);
-
-  const activeProgress = indicatorDrag ? indicatorDrag.visualProgress : analysis.progress;
+  // Design agent: Drive the progress visuals directly from the computed host-based ratios.
+  const activeIndicatorPercent = analysis.parsed ? analysis.indicatorTrackPercent : 0;
+  const activeHostFillPercent = analysis.parsed ? analysis.hostFillPercent : 0;
+  const hostWindowStartPercent = analysis.parsed ? analysis.hostWindowStartPercent : 0;
+  const hostWindowWidthPercent = analysis.parsed ? analysis.hostWindowWidthPercent : 0;
+  // Design agent: Inline gradient keeps the track colours aligned with the computed proportions.
+  const progressTrackStyle = analysis.parsed ? { background: analysis.trackGradient } : undefined;
+  // Design agent: Shift the indicator so edge cases snap cleanly to the track boundaries.
+  const indicatorTransform =
+    activeIndicatorPercent <= 0
+      ? 'translate(0, -50%)'
+      : activeIndicatorPercent >= 100
+      ? 'translate(-100%, -50%)'
+      : 'translate(-50%, -50%)';
 
   return (
     <div className="column-content" id="ipv4-insight-panel">
@@ -413,25 +387,34 @@ function IpInspector() {
             <div className="progress-wrapper" id="ipv4-progress-wrapper">
               <div
                 ref={progressTrackRef}
-                className={`progress-track${isIndicatorDragging ? ' is-dragging' : ''}`}
+                className="progress-track"
                 id="ipv4-insight-progress-track"
+                style={progressTrackStyle}
                 onMouseEnter={handleProgressEnter}
                 onMouseLeave={handleProgressLeave}
                 onMouseMove={handleProgressMove}
-                onPointerDown={handleTrackPointerDown}
-                onPointerMove={handleTrackPointerMove}
-                onPointerUp={handleTrackPointerUp}
-                onPointerCancel={handleTrackPointerUp}
               >
+                {/* Design agent: Visualise where usable hosts sit within the address range. */}
                 <div
-                  className="progress-gradient"
+                  className="progress-host-window"
+                  style={{
+                    left: `${hostWindowStartPercent}%`,
+                    width: `${hostWindowWidthPercent}%`,
+                  }}
+                />
+                {/* Design agent: Fill reflects how many hosts precede the inspected endpoint. */}
+                <div
+                  className="progress-fill"
                   id="ipv4-insight-progress-gradient"
-                  style={{ width: `${activeProgress}%` }}
+                  style={{
+                    left: `${hostWindowStartPercent}%`,
+                    width: `${activeHostFillPercent}%`,
+                  }}
                 />
                 <div
                   className={`progress-indicator ${isProgressHovered ? 'is-hovered' : ''}`}
                   id="ipv4-progress-indicator"
-                  style={{ left: `${activeProgress}%` }}
+                  style={{ left: `${activeIndicatorPercent}%`, transform: indicatorTransform }}
                 >
                   <span>{analysis.currentOctet}</span>
                 </div>

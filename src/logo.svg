@@ -18,8 +18,8 @@
     <path d="M48 48q-7.5 5.5-14 18"/>
     <path d="M48 48q7.5 5.5 14 18"/>
   </g>
-  <!-- Design agent: Matches node styling across the graph by removing outlines and keeping gradient fills. -->
-  <circle cx="48" cy="22" r="9.5" fill="url(#masqip-node)"/>
-  <rect x="27" y="68" width="14" height="14" rx="3" fill="url(#masqip-node)"/>
-  <rect x="55" y="68" width="14" height="14" rx="3" fill="url(#masqip-node)"/>
+  <!-- Design agent: Aligns node centers with the branch skeleton for a tighter vertical rhythm. -->
+  <circle cx="48" cy="32" r="7" fill="url(#masqip-node)"/>
+  <rect x="27" y="59" width="14" height="14" rx="3" fill="url(#masqip-node)"/>
+  <rect x="55" y="59" width="14" height="14" rx="3" fill="url(#masqip-node)"/>
 </svg>

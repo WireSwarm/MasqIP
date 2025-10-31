@@ -181,6 +181,8 @@ function IpInspector() {
     const mask = formatMask(parsed.mask);
     const wildcard = formatWildcard(parsed.mask);
     const clampedIp = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
+    // Design agent: Extract host mask to isolate host bits for proportional placement.
+    const hostMask = (~parsed.mask) >>> 0;
     const hostRangeStart = parsed.prefix >= 31 ? parsed.network : parsed.network + 1;
     const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
     // Design agent: Count only usable hosts so the slider represents actual assignable endpoints.
@@ -208,11 +210,9 @@ function IpInspector() {
       hostWindowWidthRatio === 0
         ? hostWindowStartRatio
         : hostWindowStartRatio + hostProgressRatio * hostWindowWidthRatio;
-    // Design agent: Position the indicator against the full network span.
-    const networkTrackRatio =
-      totalRange === 0
-        ? 0
-        : Math.max(0, Math.min(1, (clampedIp - parsed.network) / totalRange));
+    // Design agent: Position the indicator using only the host bits so equivalent host values align across networks.
+    const hostSegment = clampedIp & hostMask;
+    const networkTrackRatio = hostMask === 0 ? 0 : Math.max(0, Math.min(1, hostSegment / hostMask));
     // Design agent: Clamp proportional positioning to the track bounds to avoid overflow.
     const indicatorTrackPercent = Math.min(100, Math.max(0, networkTrackRatio * 100));
     const hostWindowStartPercent = hostWindowStartRatio * 100;

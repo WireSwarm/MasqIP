@@ -43,8 +43,9 @@ export function parseCidr(input) {
   }
   const baseIp = ipv4ToInt(ipPart);
   const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
-  const network = baseIp & mask;
-  const broadcast = network | (~mask >>> 0);
+  // Design agent: Ensure network arithmetic stays unsigned to avoid negative overflow.
+  const network = (baseIp & mask) >>> 0;
+  const broadcast = (network | (~mask >>> 0)) >>> 0;
   return {
     ip: ipPart,
     prefix,

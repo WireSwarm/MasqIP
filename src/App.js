@@ -8,10 +8,20 @@ function App() {
   return (
     <div className="app-surface">
       <header className="app-header">
-        <h1 className="brand-title">MasqIP Studio</h1>
-        <p className="brand-subtitle">
-          Modern IPv4 planning, summarization, and insight toolkit.
-        </p>
+        {/* Design agent: Introduced the hero branding stack pairing the logo with typographic hierarchy. */}
+        <div className="brand-identity">
+          <img
+            className="brand-logo"
+            src={`${process.env.PUBLIC_URL}/logo.svg`}
+            alt="MasqIP tree network logo"
+          />
+          <div className="brand-text">
+            <h1 className="brand-title">MasqIP Studio</h1>
+            <p className="brand-subtitle">
+              Modern IPv4 planning, summarization, and insight toolkit.
+            </p>
+          </div>
+        </div>
       </header>
 
       <main className="tool-grid">

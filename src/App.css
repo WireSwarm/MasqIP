@@ -40,6 +40,26 @@
   max-width: 960px;
 }
 
+/* Design agent: Aligns the hero logo with the primary brand messaging for immediate recognition. */
+.brand-identity {
+  display: flex;
+  align-items: center;
+  gap: clamp(1.1rem, 2vw, 1.75rem);
+}
+
+.brand-logo {
+  width: clamp(64px, 12vw, 96px);
+  height: auto;
+  flex-shrink: 0;
+  filter: drop-shadow(0 20px 35px rgba(14, 165, 233, 0.3));
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .brand-title {
   font-size: clamp(2.25rem, 3.2vw, 3rem);
   font-weight: 700;
@@ -858,6 +878,14 @@
 @media (max-width: 840px) {
   .app-surface {
     padding: 2.75rem 1.25rem;
+  }
+
+  .brand-identity {
+    gap: 1rem;
+  }
+
+  .brand-logo {
+    width: clamp(56px, 18vw, 72px);
   }
 
   .tool-grid {

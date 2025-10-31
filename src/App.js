@@ -10,11 +10,14 @@ function App() {
       <header className="app-header">
         {/* Design agent: Introduced the hero branding stack pairing the logo with typographic hierarchy. */}
         <div className="brand-identity">
-          <img
-            className="brand-logo"
-            src={`${process.env.PUBLIC_URL}/logo.svg`}
-            alt="MasqIP tree network logo"
-          />
+          {/* Design agent: Capsules the logo within a radiant shell to echo the app's luminous glassmorphism aesthetic. */}
+          <div className="brand-logo-shell">
+            <img
+              className="brand-logo"
+              src={`${process.env.PUBLIC_URL}/logo.svg`}
+              alt="MasqIP tree network logo"
+            />
+          </div>
           <div className="brand-text">
             <h1 className="brand-title">MasqIP Studio</h1>
             <p className="brand-subtitle">

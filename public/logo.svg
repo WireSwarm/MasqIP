@@ -1,27 +1,66 @@
 <svg width="96" height="96" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="masqip-logo-title masqip-logo-desc">
-  <title id="masqip-logo-title">MasqIP Tree Network Logo</title>
-  <desc id="masqip-logo-desc">Minimal tree-like network icon with a vertical branch leading to an upper disk and two lower square leaves.</desc>
+  <title id="masqip-logo-title">MasqIP Luminous Network Logo</title>
+  <desc id="masqip-logo-desc">Stylised network tree enclosed in a radiant orb to express intelligent IPv4 routing and telemetry.</desc>
   <defs>
-    <linearGradient id="masqip-branch" x1="48" y1="20" x2="48" y2="76" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#5B21B6"/>
-      <stop offset="0.45" stop-color="#4F46E5"/>
-      <stop offset="1" stop-color="#0EA5E9"/>
+    <radialGradient id="masqip-orb" cx="0.48" cy="0.38" r="0.68">
+      <stop offset="0" stop-color="#3b1c95" stop-opacity="0.92"/>
+      <stop offset="0.55" stop-color="#171f42" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#050712" stop-opacity="0.88"/>
+    </radialGradient>
+    <radialGradient id="masqip-aurora" cx="0.68" cy="0.3" r="0.52">
+      <stop offset="0" stop-color="#4fd8ff" stop-opacity="0.65"/>
+      <stop offset="0.6" stop-color="#8c7bff" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#8c7bff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="masqip-branch" x1="48" y1="24" x2="48" y2="74" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4fd8ff"/>
+      <stop offset="0.4" stop-color="#38bdf8"/>
+      <stop offset="0.75" stop-color="#4f46e5"/>
+      <stop offset="1" stop-color="#7c3aed"/>
     </linearGradient>
-    <filter id="masqip-soft-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
+    <linearGradient id="masqip-node" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#67e8f9"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="masqip-signal" x1="28" y1="40" x2="68" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8c7bff" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#8c7bff" stop-opacity="0.55"/>
+      <stop offset="0.65" stop-color="#4fd8ff" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#4fd8ff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="masqip-orb-glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="orbBlur"/>
       <feMerge>
-        <feMergeNode in="blur"/>
+        <feMergeNode in="orbBlur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
+    <filter id="masqip-soft-glow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2.6" flood-color="#38bdf8" flood-opacity="0.55"/>
+    </filter>
   </defs>
-  <!-- Design agent: Balanced the network motif to remove vertical stretch while aligning node hues with the branch gradient terminus. -->
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" stroke="url(#masqip-branch)" filter="url(#masqip-soft-glow)">
-    <path d="M48 34V54"/>
-    <path d="M48 54L32 74"/>
-    <path d="M48 54L64 74"/>
+  <!-- Design agent: Establishes the luminous data orb that encapsulates the MasqIP tooling suite. -->
+  <g filter="url(#masqip-orb-glow)">
+    <circle cx="48" cy="48" r="36" fill="url(#masqip-orb)"/>
+    <circle cx="58" cy="30" r="16" fill="url(#masqip-aurora)" opacity="0.9"/>
+    <circle cx="48" cy="48" r="33.5" fill="none" stroke="#4f46e5" stroke-opacity="0.22" stroke-width="1.4"/>
+    <circle cx="48" cy="48" r="26" fill="none" stroke="#38bdf8" stroke-opacity="0.18" stroke-width="1.2" stroke-dasharray="6 10"/>
   </g>
-  <circle cx="48" cy="24" r="9" fill="#0EA5E9" stroke="#0369A1" stroke-width="0.9"/>
-  <rect x="26" y="72" width="12" height="12" rx="2" fill="#0EA5E9" stroke="#0369A1" stroke-width="0.9"/>
-  <rect x="58" y="72" width="12" height="12" rx="2" fill="#0EA5E9" stroke="#0369A1" stroke-width="0.9"/>
+  <!-- Design agent: Signals packet bursts pulsing through the routing graph. -->
+  <path d="M28 40h40" stroke="url(#masqip-signal)" stroke-width="3.1" stroke-linecap="round"/>
+  <path d="M24 60h48" stroke="url(#masqip-signal)" stroke-width="2.4" stroke-linecap="round" opacity="0.7"/>
+  <!-- Design agent: Draws the branching trunk with eased curves to suggest adaptive routing. -->
+  <g fill="none" stroke="url(#masqip-branch)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" filter="url(#masqip-soft-glow)">
+    <path d="M48 30v18"/>
+    <path d="M48 48q-8.5 5.5-14 17"/>
+    <path d="M48 48q8.5 5.5 14 17"/>
+  </g>
+  <!-- Design agent: Highlights the data nodes with spectral gradients that link to the brand palette. -->
+  <circle cx="48" cy="22" r="9.5" fill="url(#masqip-node)" stroke="#0f172a" stroke-width="1.1"/>
+  <rect x="26" y="66" width="14.5" height="14.5" rx="3" fill="url(#masqip-node)" stroke="#1e3a8a" stroke-width="1"/>
+  <rect x="55.5" y="66" width="14.5" height="14.5" rx="3" fill="url(#masqip-node)" stroke="#1e3a8a" stroke-width="1"/>
+  <!-- Design agent: Adds telemetry sparks to imply live monitoring across the canopy. -->
+  <circle cx="34" cy="34" r="2.4" fill="#7c3aed" opacity="0.45"/>
+  <circle cx="68" cy="36" r="2.8" fill="#4fd8ff" opacity="0.65"/>
+  <circle cx="36" cy="58" r="2" fill="#38bdf8" opacity="0.5"/>
 </svg>

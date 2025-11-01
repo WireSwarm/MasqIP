@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   formatMask,
   formatWildcard,
@@ -219,11 +219,21 @@ const buildInsightAnalysis = (rawValue) => {
     };
   }
 
-  const parsed = parseCidr(trimmed);
+  let parsed = parseCidr(trimmed);
   if (!parsed) {
-    return {
-      parsed: null,
-      error: 'Invalid IPv4/CIDR notation. Try 192.168.1.10/24.',
+    const ipIntOnly = ipv4ToInt(trimmed);
+    if (ipIntOnly === null) {
+      return {
+        parsed: null,
+        error: 'Invalid IPv4 or CIDR value. Try 192.168.1.10/24.',
+      };
+    }
+    parsed = {
+      ip: trimmed,
+      prefix: 32,
+      mask: 0xffffffff,
+      network: ipIntOnly,
+      broadcast: ipIntOnly,
     };
   }
 
@@ -342,7 +352,7 @@ const buildInsightAnalysis = (rawValue) => {
 
 // Design agent: Renders an IPv4 insight summary card directly beneath its entry field.
 // Developer agent: Encapsulates tooltip and collapse behaviour per entry to avoid shared side effects.
-function InspectorCard({ analysis, entryIndex }) {
+function InspectorCard({ analysis, entryIndex, canCollapse }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isProgressHovered, setIsProgressHovered] = useState(false);
   // Design agent: Stores live tooltip metadata for the progress bar.
@@ -365,6 +375,14 @@ function InspectorCard({ analysis, entryIndex }) {
   const toggleCardCollapse = () => {
     setIsCollapsed((previous) => !previous);
   };
+
+  // Design agent: Prevents collapsed cards when the collapse affordance should be hidden.
+  // Developer agent: Resets the collapsed state whenever prerequisites are no longer satisfied.
+  useEffect(() => {
+    if (!canCollapse || !analysis.parsed) {
+      setIsCollapsed(false);
+    }
+  }, [analysis.parsed, canCollapse]);
 
   // Design agent: Shows tooltips when the progress bar is hovered.
   const handleProgressEnter = () => {
@@ -425,7 +443,7 @@ function InspectorCard({ analysis, entryIndex }) {
 
   return (
     <div
-      className={`result-card insight-card insight-card--collapsible${isCollapsed ? ' is-collapsed' : ''}`}
+      className={`result-card insight-card${analysis.parsed && canCollapse ? ' insight-card--collapsible' : ''}${isCollapsed ? ' is-collapsed' : ''}`}
       id={buildId('card')}
     >
       <div className="insight-card-header" id={buildId('card-header')}>
@@ -443,17 +461,17 @@ function InspectorCard({ analysis, entryIndex }) {
               : 'Enter an IPv4 / CIDR value'}
           </span>
         </div>
-        <button
-          type="button"
-          className="insight-card-toggle"
-          id={buildId('card-toggle')}
-          onClick={toggleCardCollapse}
-          aria-expanded={!isCollapsed}
-          disabled={!analysis.parsed}
-          aria-disabled={!analysis.parsed}
-        >
-          {isCollapsed ? 'Expand' : 'Collapse'}
-        </button>
+        {analysis.parsed && canCollapse && (
+          <button
+            type="button"
+            className="insight-card-toggle"
+            id={buildId('card-toggle')}
+            onClick={toggleCardCollapse}
+            aria-expanded={!isCollapsed}
+          >
+            {isCollapsed ? 'Expand' : 'Collapse'}
+          </button>
+        )}
       </div>
       <div className="insight-card-body" id={buildId('card-body')} aria-hidden={isCollapsed}>
         {analysis.error && <p className="error-text" id={buildId('card-error')}>{analysis.error}</p>}
@@ -678,6 +696,12 @@ function IpInspector() {
     return entries.map((value) => buildInsightAnalysis(value));
   }, [entries]);
 
+  // Design agent: Tracks overall insight readiness to decide when collapse controls should surface.
+  // Developer agent: Counts parsed entries once per render to avoid redundant computations downstream.
+  const validEntryCount = useMemo(() => {
+    return analyses.reduce((count, analysis) => (analysis.parsed ? count + 1 : count), 0);
+  }, [analyses]);
+
   // Design agent: Moves the caret to a specific IPv4 field after auto-expansion.
   // Developer agent: Ensures newly created inputs receive focus immediately.
   const focusEntryField = (index) => {
@@ -700,21 +724,10 @@ function IpInspector() {
       return normaliseInspectorEntries(next);
     });
 
+    const caretAtEnd = typeof caretPosition === 'number' && caretPosition === value.length;
     const trimmed = value.trim();
     const parsed = parseCidr(trimmed);
-    const caretAtEnd = typeof caretPosition === 'number' && caretPosition === value.length;
     if (caretAtEnd && parsed) {
-      const nextIndex = Math.min(index + 1, MAX_INSPECTOR_FIELDS - 1);
-      focusEntryField(nextIndex);
-      return;
-    }
-
-    const cidrMatch = value.match(/\/(\d{1,2})$/);
-    const prefixNumber = cidrMatch ? Number(cidrMatch[1]) : null;
-    const hasCompletePrefix =
-      cidrMatch != null && cidrMatch[1].length >= 2 && prefixNumber != null && prefixNumber <= 32;
-
-    if (caretAtEnd && hasCompletePrefix) {
       const nextIndex = Math.min(index + 1, MAX_INSPECTOR_FIELDS - 1);
       focusEntryField(nextIndex);
     }
@@ -768,7 +781,11 @@ function IpInspector() {
                 onKeyDown={(event) => handleEntryKeyDown(event, index)}
               />
             </label>
-            <InspectorCard analysis={analyses[index]} entryIndex={index} />
+            <InspectorCard
+              analysis={analyses[index]}
+              entryIndex={index}
+              canCollapse={validEntryCount > 2}
+            />
           </div>
         ))}
       </div>

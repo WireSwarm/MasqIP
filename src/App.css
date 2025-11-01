@@ -672,6 +672,14 @@
   display: none;
 }
 
+.insight-entry {
+  /* Design agent: Adds breathing room between each IPv4 field and its insight card for scannability. */
+  /* Developer agent: Uses flex gap so spacing adapts gracefully on responsive breakpoints. */
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 .insight-list {
   list-style: none;
   margin: 0;

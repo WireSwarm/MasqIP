@@ -711,9 +711,9 @@ function IpInspector() {
     }, 0);
   }, [entries]);
 
-  // Design agent: Enables collapse controls only when the inspector hosts three or more insights.
+  // Design agent: Enables collapse controls as soon as two or more insights are populated.
   // Developer agent: Shares the flag with each entry to keep render conditions simple.
-  const isCollapseEnabled = validEntryCount > 2;
+  const isCollapseEnabled = validEntryCount >= 2;
 
   // Design agent: Moves the caret to a specific IPv4 field after auto-expansion.
   // Developer agent: Re-attempts focus until the next field exists to keep keyboard flow snappy.

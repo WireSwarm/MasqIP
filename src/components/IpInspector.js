@@ -696,23 +696,47 @@ function IpInspector() {
     return entries.map((value) => buildInsightAnalysis(value));
   }, [entries]);
 
-  // Design agent: Tracks overall insight readiness to decide when collapse controls should surface.
-  // Developer agent: Counts parsed entries once per render to avoid redundant computations downstream.
+  // Design agent: Tallies valid IPv4 rows, treating bare hosts as acceptable targets for insight cards.
+  // Developer agent: Reads directly from the source entries so thresholds mirror the latest user edits.
   const validEntryCount = useMemo(() => {
-    return analyses.reduce((count, analysis) => (analysis.parsed ? count + 1 : count), 0);
-  }, [analyses]);
+    return entries.reduce((count, value) => {
+      const trimmed = value.trim();
+      if (trimmed === '') {
+        return count;
+      }
+      if (parseCidr(trimmed)) {
+        return count + 1;
+      }
+      return ipv4ToInt(trimmed) !== null ? count + 1 : count;
+    }, 0);
+  }, [entries]);
+
+  // Design agent: Enables collapse controls only when the inspector hosts three or more insights.
+  // Developer agent: Shares the flag with each entry to keep render conditions simple.
+  const isCollapseEnabled = validEntryCount > 2;
 
   // Design agent: Moves the caret to a specific IPv4 field after auto-expansion.
-  // Developer agent: Ensures newly created inputs receive focus immediately.
+  // Developer agent: Re-attempts focus until the next field exists to keep keyboard flow snappy.
   const focusEntryField = (index) => {
-    queueMicrotask(() => {
+    const schedule =
+      typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+        ? window.requestAnimationFrame.bind(window)
+        : (callback) => setTimeout(callback, 0);
+
+    const tryFocus = (attempt = 0) => {
       const element = inputRefs.current[index];
       if (element) {
         const length = element.value.length;
         element.focus();
         element.setSelectionRange(length, length);
+        return;
       }
-    });
+      if (attempt < 5) {
+        schedule(() => tryFocus(attempt + 1));
+      }
+    };
+
+    tryFocus();
   };
 
   // Design agent: Propagates edits through the inspector entries while keeping them normalised.
@@ -728,8 +752,12 @@ function IpInspector() {
     const trimmed = value.trim();
     const parsed = parseCidr(trimmed);
     if (caretAtEnd && parsed) {
-      const nextIndex = Math.min(index + 1, MAX_INSPECTOR_FIELDS - 1);
-      focusEntryField(nextIndex);
+      const slashIndex = trimmed.indexOf('/');
+      const suffix = slashIndex >= 0 ? trimmed.slice(slashIndex + 1) : '';
+      if (suffix.length >= 2) {
+        const nextIndex = Math.min(index + 1, MAX_INSPECTOR_FIELDS - 1);
+        focusEntryField(nextIndex);
+      }
     }
   };
 
@@ -784,7 +812,7 @@ function IpInspector() {
             <InspectorCard
               analysis={analyses[index]}
               entryIndex={index}
-              canCollapse={validEntryCount > 2}
+              canCollapse={isCollapseEnabled}
             />
           </div>
         ))}

@@ -16,6 +16,68 @@ const INSPECTOR_COLORS = {
   host: '#F97316',
 };
 
+// Design agent: Shares accent colours with the hierarchical planner for consistent theming.
+// Developer agent: Centralises palette references used when syncing UI states.
+const INSPECTOR_COLOR_B = 'var(--layer-color-b)';
+const INSPECTOR_COLOR_C = 'var(--layer-color-c)';
+
+const MAX_INSPECTOR_FIELDS = 24;
+
+// Design agent: Keeps the inspector entry list tidy with a single trailing empty row.
+// Developer agent: Normalises the IPv4 insight entries so new inputs materialise progressively.
+const normaliseInspectorEntries = (values) => {
+  const normalised = [];
+  let hasTrailingEmpty = false;
+
+  for (const value of values) {
+    if (value.trim() === '') {
+      if (!hasTrailingEmpty) {
+        normalised.push('');
+        hasTrailingEmpty = true;
+      }
+    } else {
+      normalised.push(value);
+      hasTrailingEmpty = false;
+    }
+
+    if (normalised.length === MAX_INSPECTOR_FIELDS) {
+      break;
+    }
+  }
+
+  if (!hasTrailingEmpty && normalised.length < MAX_INSPECTOR_FIELDS) {
+    normalised.push('');
+  }
+
+  return normalised;
+};
+
+// Design agent: Anticipates adjacent networks to help the user hop through sequential ranges.
+// Developer agent: Calculates up to three valid follow-up network addresses for the active CIDR.
+const buildNextNetworks = (parsed) => {
+  if (!parsed) {
+    return [];
+  }
+
+  const blockSize = 2 ** Math.max(0, 32 - parsed.prefix);
+  if (blockSize <= 0) {
+    return [];
+  }
+
+  const next = [];
+  let candidate = parsed.network + blockSize;
+
+  for (let index = 0; index < 3; index += 1) {
+    if (candidate > 0xFFFFFFFF) {
+      break;
+    }
+    next.push(`${intToIpv4(candidate)}/${parsed.prefix}`);
+    candidate += blockSize;
+  }
+
+  return next;
+};
+
 // Design agent: Computes contiguous free ranges around the inspected IP.
 const computeFreeSegments = (ipInt, usableStart, usableEnd) => {
   if (usableEnd < usableStart) {
@@ -145,9 +207,143 @@ const getHostPortionLabel = (addressInt, prefix) => {
   return `.${suffix}`;
 };
 
-// Design agent: Component exposing IPv4 insights and the interactive progress visualisation.
-function IpInspector() {
-  const [input, setInput] = useState('');
+// Design agent: Derives interpreted metrics for a specific IPv4 entry to drive its insight card.
+// Developer agent: Normalises computed values so the presentation layer can remain stateless.
+const buildInsightAnalysis = (rawValue) => {
+  const trimmed = rawValue.trim();
+
+  if (trimmed === '') {
+    return {
+      parsed: null,
+      prompt: 'Enter an IPv4 address with CIDR to begin.',
+    };
+  }
+
+  const parsed = parseCidr(trimmed);
+  if (!parsed) {
+    return {
+      parsed: null,
+      error: 'Invalid IPv4/CIDR notation. Try 192.168.1.10/24.',
+    };
+  }
+
+  const ipInt = ipv4ToInt(parsed.ip);
+  if (ipInt === null) {
+    return {
+      parsed: null,
+      error: 'The IPv4 portion is not valid.',
+    };
+  }
+
+  const totalAddresses = getTotalAddressCount(parsed.prefix);
+  const metadata = getAddressMetadata(ipInt);
+  const mask = formatMask(parsed.mask);
+  const wildcard = formatWildcard(parsed.mask);
+  const clampedIp = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
+  // Design agent: Extract host mask to isolate host bits for proportional placement.
+  const hostMask = (~parsed.mask) >>> 0;
+  const hostRangeStart = parsed.prefix >= 31 ? parsed.network : parsed.network + 1;
+  const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
+  // Design agent: Count only usable hosts so the slider represents actual assignable endpoints.
+  const usableHostCount = hostRangeEnd < hostRangeStart ? 0 : hostRangeEnd - hostRangeStart + 1;
+  const clampedHostAddress =
+    usableHostCount <= 0
+      ? hostRangeStart
+      : Math.min(Math.max(clampedIp, hostRangeStart), hostRangeEnd);
+  const hostIndex = usableHostCount <= 0 ? 0 : clampedHostAddress - hostRangeStart;
+  const hostProgressRatio = usableHostCount <= 1 ? 0 : hostIndex / (usableHostCount - 1);
+  const hostProgressPercent = hostProgressRatio * 100;
+  const totalRange = parsed.broadcast - parsed.network;
+  // Design agent: Map usable host spans back onto the visual track to preserve network/broadcast context.
+  const hostWindowStartRatio =
+    totalRange === 0 ? 0 : Math.max(0, Math.min(1, (hostRangeStart - parsed.network) / totalRange));
+  const hostWindowEndRatio =
+    totalRange === 0 ? 1 : Math.max(0, Math.min(1, (hostRangeEnd - parsed.network) / totalRange));
+  const hostWindowWidthRatio = Math.max(0, hostWindowEndRatio - hostWindowStartRatio);
+  // Design agent: Preserve host-space placement for interaction feedback.
+  const hostIndicatorRatio =
+    hostWindowWidthRatio === 0
+      ? hostWindowStartRatio
+      : hostWindowStartRatio + hostProgressRatio * hostWindowWidthRatio;
+  // Design agent: Position the indicator using only the host bits so equivalent host values align across networks.
+  const hostSegment = clampedIp & hostMask;
+  const networkTrackRatio = hostMask === 0 ? 0 : Math.max(0, Math.min(1, hostSegment / hostMask));
+  // Design agent: Clamp proportional positioning to the track bounds to avoid overflow.
+  const indicatorTrackPercent = Math.min(100, Math.max(0, networkTrackRatio * 100));
+  const hostWindowStartPercent = hostWindowStartRatio * 100;
+  const hostWindowWidthPercent = hostWindowWidthRatio * 100;
+  const hostFillPercent =
+    hostWindowWidthRatio === 0 ? 0 : hostWindowWidthPercent * hostProgressRatio;
+  // Design agent: Split the track gradient so the left segment tracks the network portion.
+  const trackGradient = `linear-gradient(90deg, ${INSPECTOR_COLORS.network} 0%, ${INSPECTOR_COLORS.network} ${indicatorTrackPercent}%, ${INSPECTOR_COLORS.host} ${indicatorTrackPercent}%, ${INSPECTOR_COLORS.host} 100%)`;
+  const freeSegments = computeFreeSegments(ipInt, hostRangeStart, hostRangeEnd);
+  const isNetworkAddress = ipInt === parsed.network;
+  const isBroadcastAddress = ipInt === parsed.broadcast;
+  const colorisedIp = buildColorisedOctets(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
+  const boundaryBinary = buildBoundaryBinary(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
+  const hostPortionNetwork = getHostPortionLabel(parsed.network, parsed.prefix);
+  const hostPortionBroadcast = getHostPortionLabel(parsed.broadcast, parsed.prefix);
+  const hostPortionCurrent = getHostPortionLabel(ipInt, parsed.prefix);
+  const indicatorAccent = isNetworkAddress
+    ? INSPECTOR_COLOR_B
+    : isBroadcastAddress
+    ? INSPECTOR_COLOR_C
+    : INSPECTOR_COLORS.host;
+  const hostBits = Math.max(0, 32 - parsed.prefix);
+  // Design agent: Report the usable host count so UI metrics align with the progress bar.
+  const totalHosts = parsed.prefix >= 31 ? totalAddresses : Math.max(0, totalAddresses - 2);
+  const indicatorScale = Math.max(64, Math.min(240, 48 + hostBits * 12));
+  const indicatorTextColor = isNetworkAddress
+    ? INSPECTOR_COLOR_B
+    : isBroadcastAddress
+    ? INSPECTOR_COLOR_C
+    : INSPECTOR_COLORS.host;
+
+  return {
+    parsed,
+    prefix: parsed.prefix,
+    mask,
+    wildcard,
+    type: metadata.label,
+    addressMetadata: metadata,
+    ipClass: getIpv4Class(parsed.ip),
+    hostProgressPercent,
+    hostProgressRatio,
+    indicatorTrackPercent,
+    indicatorTrackRatio: networkTrackRatio,
+    hostIndicatorRatio,
+    hostWindowStartPercent,
+    hostWindowWidthPercent,
+    hostFillPercent,
+    trackGradient,
+    usableHostCount,
+    hostIndex,
+    networkAddress: intToIpv4(parsed.network),
+    broadcastAddress: intToIpv4(parsed.broadcast),
+    leftUsable: freeSegments.left,
+    rightUsable: freeSegments.right,
+    inspectedIp: parsed.ip,
+    totalHosts,
+    colorisedIp,
+    boundaryBinary,
+    hostPortionNetwork,
+    hostPortionBroadcast,
+    hostPortionCurrent,
+    isNetworkAddress,
+    isBroadcastAddress,
+    indicatorAccent,
+    indicatorTextColor,
+    indicatorScale,
+    colors: INSPECTOR_COLORS,
+    currentOctet: parsed.ip.split('.').pop(),
+    nextNetworks: buildNextNetworks(parsed),
+  };
+};
+
+// Design agent: Renders an IPv4 insight summary card directly beneath its entry field.
+// Developer agent: Encapsulates tooltip and collapse behaviour per entry to avoid shared side effects.
+function InspectorCard({ analysis, entryIndex }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isProgressHovered, setIsProgressHovered] = useState(false);
   // Design agent: Stores live tooltip metadata for the progress bar.
   const [tooltipState, setTooltipState] = useState({
@@ -160,135 +356,14 @@ function IpInspector() {
   // Design agent: References the progress track for tooltip alignment.
   const progressTrackRef = useRef(null);
 
-  // Design agent: Derives interpreted metrics for the current input.
-  const analysis = useMemo(() => {
-    if (input.trim() === '') {
-      return { prompt: 'Enter an IPv4 address with CIDR to begin.' };
-    }
+  // Design agent: Guarantees unique DOM ids for repeated insight sections.
+  // Developer agent: Keeps id construction declarative for easier maintenance.
+  const buildId = (suffix) => `ipv4-insight-entry-${entryIndex}-${suffix}`;
 
-    const parsed = parseCidr(input);
-    if (!parsed) {
-      return { error: 'Invalid IPv4/CIDR notation. Try 192.168.1.10/24.' };
-    }
-
-    const ipInt = ipv4ToInt(parsed.ip);
-    if (ipInt === null) {
-      return { error: 'The IPv4 portion is not valid.' };
-    }
-
-    const totalAddresses = getTotalAddressCount(parsed.prefix);
-    const metadata = getAddressMetadata(ipInt);
-    const mask = formatMask(parsed.mask);
-    const wildcard = formatWildcard(parsed.mask);
-    const clampedIp = Math.min(Math.max(ipInt, parsed.network), parsed.broadcast);
-    // Design agent: Extract host mask to isolate host bits for proportional placement.
-    const hostMask = (~parsed.mask) >>> 0;
-    const hostRangeStart = parsed.prefix >= 31 ? parsed.network : parsed.network + 1;
-    const hostRangeEnd = parsed.prefix >= 31 ? parsed.broadcast : parsed.broadcast - 1;
-    // Design agent: Count only usable hosts so the slider represents actual assignable endpoints.
-    const usableHostCount = hostRangeEnd < hostRangeStart ? 0 : hostRangeEnd - hostRangeStart + 1;
-    const clampedHostAddress =
-      usableHostCount <= 0
-        ? hostRangeStart
-        : Math.min(Math.max(clampedIp, hostRangeStart), hostRangeEnd);
-    const hostIndex = usableHostCount <= 0 ? 0 : clampedHostAddress - hostRangeStart;
-    const hostProgressRatio = usableHostCount <= 1 ? 0 : hostIndex / (usableHostCount - 1);
-    const hostProgressPercent = hostProgressRatio * 100;
-    const totalRange = parsed.broadcast - parsed.network;
-    // Design agent: Map usable host spans back onto the visual track to preserve network/broadcast context.
-    const hostWindowStartRatio =
-      totalRange === 0
-        ? 0
-        : Math.max(0, Math.min(1, (hostRangeStart - parsed.network) / totalRange));
-    const hostWindowEndRatio =
-      totalRange === 0
-        ? 1
-        : Math.max(0, Math.min(1, (hostRangeEnd - parsed.network) / totalRange));
-    const hostWindowWidthRatio = Math.max(0, hostWindowEndRatio - hostWindowStartRatio);
-    // Design agent: Preserve host-space placement for interaction feedback.
-    const hostIndicatorRatio =
-      hostWindowWidthRatio === 0
-        ? hostWindowStartRatio
-        : hostWindowStartRatio + hostProgressRatio * hostWindowWidthRatio;
-    // Design agent: Position the indicator using only the host bits so equivalent host values align across networks.
-    const hostSegment = clampedIp & hostMask;
-    const networkTrackRatio = hostMask === 0 ? 0 : Math.max(0, Math.min(1, hostSegment / hostMask));
-    // Design agent: Clamp proportional positioning to the track bounds to avoid overflow.
-    const indicatorTrackPercent = Math.min(100, Math.max(0, networkTrackRatio * 100));
-    const hostWindowStartPercent = hostWindowStartRatio * 100;
-    const hostWindowWidthPercent = hostWindowWidthRatio * 100;
-    const hostFillPercent =
-      hostWindowWidthRatio === 0 ? 0 : hostWindowWidthPercent * hostProgressRatio;
-    // Design agent: Split the track gradient so the left segment tracks the network portion.
-    const trackGradient = `linear-gradient(90deg, ${INSPECTOR_COLORS.network} 0%, ${INSPECTOR_COLORS.network} ${indicatorTrackPercent}%, ${INSPECTOR_COLORS.host} ${indicatorTrackPercent}%, ${INSPECTOR_COLORS.host} 100%)`;
-    const freeSegments = computeFreeSegments(ipInt, hostRangeStart, hostRangeEnd);
-    const isNetworkAddress = ipInt === parsed.network;
-    const isBroadcastAddress = ipInt === parsed.broadcast;
-    const colorisedIp = buildColorisedOctets(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
-    const boundaryBinary = buildBoundaryBinary(parsed.ip, parsed.prefix, INSPECTOR_COLORS);
-    const hostPortionNetwork = getHostPortionLabel(parsed.network, parsed.prefix);
-    const hostPortionBroadcast = getHostPortionLabel(parsed.broadcast, parsed.prefix);
-    const hostPortionCurrent = getHostPortionLabel(ipInt, parsed.prefix);
-    const indicatorAccent = isNetworkAddress
-      ? 'var(--layer-color-b)'
-      : isBroadcastAddress
-      ? 'var(--layer-color-c)'
-      : INSPECTOR_COLORS.host;
-    const hostBits = Math.max(0, 32 - parsed.prefix);
-    // Design agent: Report the usable host count so UI metrics align with the progress bar.
-    const totalHosts =
-      parsed.prefix >= 31 ? totalAddresses : Math.max(0, totalAddresses - 2);
-    const indicatorScale = Math.max(64, Math.min(240, 48 + hostBits * 12));
-    const indicatorTextColor = isNetworkAddress
-      ? 'var(--layer-color-b)'
-      : isBroadcastAddress
-      ? 'var(--layer-color-c)'
-      : INSPECTOR_COLORS.host;
-
-    return {
-      parsed,
-      prefix: parsed.prefix,
-      mask,
-      wildcard,
-      type: metadata.label,
-      addressMetadata: metadata,
-      ipClass: getIpv4Class(parsed.ip),
-      hostProgressPercent,
-      hostProgressRatio,
-      indicatorTrackPercent,
-      indicatorTrackRatio: networkTrackRatio,
-      hostIndicatorRatio,
-      hostWindowStartPercent,
-      hostWindowWidthPercent,
-      hostFillPercent,
-      trackGradient,
-      usableHostCount,
-      hostIndex,
-      networkAddress: intToIpv4(parsed.network),
-      broadcastAddress: intToIpv4(parsed.broadcast),
-      leftUsable: freeSegments.left,
-      rightUsable: freeSegments.right,
-      inspectedIp: parsed.ip,
-      totalHosts,
-      colorisedIp,
-      boundaryBinary,
-      hostPortionNetwork,
-      hostPortionBroadcast,
-      hostPortionCurrent,
-      isNetworkAddress,
-      isBroadcastAddress,
-      indicatorAccent,
-      indicatorTextColor,
-      indicatorScale,
-      colors: INSPECTOR_COLORS,
-      currentOctet: parsed.ip.split('.').pop(),
-    };
-  }, [input]);
-
-  // Design agent: Lists insight labels for the legend displayed beneath the progress bar.
-  // Design agent: Handles changes within the IPv4/CIDR input control.
-  const handleChange = (event) => {
-    setInput(event.target.value);
+  // Design agent: Allows the insight card to collapse or expand on demand.
+  // Developer agent: Keeps the collapse state scoped to this single insight card.
+  const toggleCardCollapse = () => {
+    setIsCollapsed((previous) => !previous);
   };
 
   // Design agent: Shows tooltips when the progress bar is hovered.
@@ -349,30 +424,56 @@ function IpInspector() {
       : 'translate(-50%, -50%)';
 
   return (
-    <div className="column-content" id="ipv4-insight-panel">
-      <label className="field" htmlFor="ipv4-cidr-input" id="ipv4-insight-input-label">
-        <span id="ipv4-cidr-label-text">IPv4 / CIDR</span>
-        <input
-          id="ipv4-cidr-input"
-          value={input}
-          onChange={handleChange}
-          placeholder="e.g. 10.0.0.125/24"
-          className="field-input"
-        />
-      </label>
-
-      <div className="result-card insight-card" id="ipv4-insight-card">
-        {analysis.error && <p className="error-text">{analysis.error}</p>}
-        {analysis.prompt && <p className="result-summary">{analysis.prompt}</p>}
+    <div
+      className={`result-card insight-card insight-card--collapsible${isCollapsed ? ' is-collapsed' : ''}`}
+      id={buildId('card')}
+    >
+      <div className="insight-card-header" id={buildId('card-header')}>
+        <div className="insight-card-header-text" id={buildId('card-header-text')}>
+          <span className="insight-card-label" id={buildId('card-label')}>
+            IPv4 Insight
+          </span>
+          <span className="insight-card-summary" id={buildId('card-summary')}>
+            {analysis.parsed
+              ? `Inspecting ${analysis.inspectedIp}/${analysis.prefix}`
+              : analysis.error
+              ? 'Invalid IPv4/CIDR input'
+              : analysis.prompt
+              ? analysis.prompt
+              : 'Enter an IPv4 / CIDR value'}
+          </span>
+        </div>
+        <button
+          type="button"
+          className="insight-card-toggle"
+          id={buildId('card-toggle')}
+          onClick={toggleCardCollapse}
+          aria-expanded={!isCollapsed}
+          disabled={!analysis.parsed}
+          aria-disabled={!analysis.parsed}
+        >
+          {isCollapsed ? 'Expand' : 'Collapse'}
+        </button>
+      </div>
+      <div className="insight-card-body" id={buildId('card-body')} aria-hidden={isCollapsed}>
+        {analysis.error && <p className="error-text" id={buildId('card-error')}>{analysis.error}</p>}
+        {!analysis.parsed && !analysis.error && analysis.prompt && (
+          <p className="result-summary" id={buildId('card-prompt')}>
+            {analysis.prompt}
+          </p>
+        )}
         {analysis.parsed && (
           <>
-            <div className="cidr-display" aria-label="Inspected address" id="ipv4-inspect-display">
-              <span className="cidr-prefix">Inspecting</span>
-              <span className="cidr-octets">
+            <div className="cidr-display" aria-label="Inspected address" id={buildId('cidr-display')}>
+              <span className="cidr-prefix" id={buildId('cidr-prefix')}>
+                Inspecting
+              </span>
+              <span className="cidr-octets" id={buildId('cidr-octets')}>
                 {analysis.colorisedIp.map((segment) => (
                   <span
                     key={segment.key}
                     className="cidr-segment"
+                    id={buildId(`cidr-segment-${segment.key}`)}
                     style={segment.style}
                     data-role={segment.role}
                   >
@@ -380,32 +481,37 @@ function IpInspector() {
                   </span>
                 ))}
               </span>
-              <span className="cidr-separator">/</span>
-              <span className="cidr-segment" style={{ color: analysis.colors.network }}>{analysis.prefix}</span>
+              <span className="cidr-separator" id={buildId('cidr-separator')}>/</span>
+              <span
+                className="cidr-segment"
+                id={buildId('cidr-prefix-value')}
+                style={{ color: analysis.colors.network }}
+              >
+                {analysis.prefix}
+              </span>
             </div>
 
-            <div className="progress-wrapper" id="ipv4-progress-wrapper">
+            <div className="progress-wrapper" id={buildId('progress-wrapper')}>
               <div
                 ref={progressTrackRef}
                 className="progress-track"
-                id="ipv4-insight-progress-track"
+                id={buildId('progress-track')}
                 style={progressTrackStyle}
                 onMouseEnter={handleProgressEnter}
                 onMouseLeave={handleProgressLeave}
                 onMouseMove={handleProgressMove}
               >
-                {/* Design agent: Visualise where usable hosts sit within the address range. */}
                 <div
                   className="progress-host-window"
+                  id={buildId('progress-host-window')}
                   style={{
                     left: `${hostWindowStartPercent}%`,
                     width: `${hostWindowWidthPercent}%`,
                   }}
                 />
-                {/* Design agent: Fill reflects how many hosts precede the inspected endpoint. */}
                 <div
                   className="progress-fill"
-                  id="ipv4-insight-progress-gradient"
+                  id={buildId('progress-fill')}
                   style={{
                     left: `${hostWindowStartPercent}%`,
                     width: `${activeHostFillPercent}%`,
@@ -413,10 +519,19 @@ function IpInspector() {
                 />
                 <div
                   className={`progress-indicator ${isProgressHovered ? 'is-hovered' : ''}`}
-                  id="ipv4-progress-indicator"
-                  style={{ left: `${activeIndicatorPercent}%`, transform: indicatorTransform }}
+                  id={buildId('progress-indicator')}
+                  style={{
+                    left: `${activeIndicatorPercent}%`,
+                    transform: indicatorTransform,
+                    borderColor: analysis.indicatorAccent,
+                  }}
                 >
-                  <span>{analysis.currentOctet}</span>
+                  <span
+                    id={buildId('progress-indicator-value')}
+                    style={{ color: analysis.indicatorTextColor }}
+                  >
+                    {analysis.currentOctet}
+                  </span>
                 </div>
               </div>
               {tooltipState.isVisible && (
@@ -426,89 +541,236 @@ function IpInspector() {
                     left: `${tooltipState.x}px`,
                     top: `${tooltipState.y}px`,
                   }}
-                  id="ipv4-progress-tooltip"
+                  id={buildId('progress-tooltip')}
                 >
                   {tooltipState.label}
                 </div>
               )}
-              <div className="progress-extents" id="ipv4-progress-extents">
+              <div className="progress-extents" id={buildId('progress-extents')}>
                 <span
                   className="endpoint"
-                  id="ipv4-endpoint-network"
-                  style={{ color: analysis.colors.network }}
+                  id={buildId('endpoint-network')}
+                  style={{ color: INSPECTOR_COLOR_B }}
                 >
                   NET: {analysis.hostPortionNetwork}
                 </span>
                 <span
                   className="endpoint endpoint--right"
-                  id="ipv4-endpoint-broadcast"
-                  style={{ color: analysis.colors.host }}
+                  id={buildId('endpoint-broadcast')}
+                  style={{ color: INSPECTOR_COLOR_C }}
                 >
                   BRD: {analysis.hostPortionBroadcast}
                 </span>
               </div>
             </div>
 
-            <div className="insight-grid" id="ipv4-insight-columns">
+            <div className="insight-grid" id={buildId('insight-grid')}>
               {analysis.boundaryBinary && (
-                <div className="boundary-panel" id="ipv4-boundary-panel">
-                  <p className="insight-title">
+                <div className="boundary-panel" id={buildId('boundary-panel')}>
+                  <p className="insight-title" id={buildId('boundary-title')}>
                     {`Boundary octet ${analysis.boundaryBinary.octetIndex + 1}`}
                   </p>
-                  <p className="binary-octet">
+                  <p className="binary-octet" id={buildId('boundary-bits')}>
                     <span style={{ color: analysis.colors.network }}>{analysis.boundaryBinary.networkBits}</span>
                     <span style={{ color: analysis.colors.host }}>{analysis.boundaryBinary.hostBits}</span>
                   </p>
-                  <div className="boundary-guide" aria-hidden="true" id="ipv4-boundary-cidr-equation">
-                    {/* Design agent: Color only the digit after '+', keep the rest neutral. */}
+                  <div className="boundary-guide" aria-hidden="true" id={buildId('boundary-equation')}>
                     {(() => {
-                      const eq = analysis.boundaryBinary.cidrEquation; // e.g. "/26 = 24 + 2"
+                      const eq = analysis.boundaryBinary.cidrEquation;
                       const plusIndex = eq.indexOf('+');
                       if (plusIndex === -1) {
                         return (
-                          <span className="boundary-count">{eq}</span>
+                          <span className="boundary-count" id={buildId('boundary-count')}>
+                            {eq}
+                          </span>
                         );
                       }
-                      const before = eq.slice(0, plusIndex + 1); // up to '+'
-                      const after = eq.slice(plusIndex + 1).trim(); // digits after '+'
+                      const before = eq.slice(0, plusIndex + 1);
+                      const after = eq.slice(plusIndex + 1).trim();
                       return (
-                        <span className="boundary-count">
-                          <span>{before} </span>
-                          <span style={{ color: analysis.colors.network }}>{after}</span>
+                        <span className="boundary-count" id={buildId('boundary-count-split')}>
+                          <span id={buildId('boundary-count-before')}>{before} </span>
+                          <span
+                            id={buildId('boundary-count-after')}
+                            style={{ color: analysis.colors.network }}
+                          >
+                            {after}
+                          </span>
                         </span>
                       );
                     })()}
                   </div>
                 </div>
               )}
-              <div id="ipv4-total-hosts">
-                <p className="insight-title">Total hosts</p>
-                <p>{analysis.totalHosts.toLocaleString()}</p>
+              <div id={buildId('total-hosts')}>
+                <p className="insight-title" id={buildId('total-hosts-title')}>
+                  Total hosts
+                </p>
+                <p id={buildId('total-hosts-value')}>
+                  {analysis.totalHosts.toLocaleString()}
+                </p>
               </div>
-              <div id="ipv4-mask-summary">
-                <p className="insight-title">Mask</p>
-                <p>{analysis.mask}</p>
+              <div id={buildId('mask-summary')}>
+                <p className="insight-title" id={buildId('mask-title')}>
+                  Mask
+                </p>
+                <p id={buildId('mask-value')}>{analysis.mask}</p>
               </div>
-              <div id="ipv4-wildcard-summary">
-                <p className="insight-title">Wildcard</p>
-                <p>{analysis.wildcard}</p>
+              <div id={buildId('wildcard-summary')}>
+                <p className="insight-title" id={buildId('wildcard-title')}>
+                  Wildcard
+                </p>
+                <p id={buildId('wildcard-value')}>{analysis.wildcard}</p>
               </div>
-              <div id="ipv4-type-summary">
-                <p className="insight-title">Type</p>
-                <p>{analysis.type}</p>
-                {analysis.addressMetadata?.category === 'multicast' && analysis.addressMetadata.service && (
-                  <p className="insight-meta" id="ipv4-multicast-service">
-                    Service: {analysis.addressMetadata.service}
+              <div id={buildId('type-summary')}>
+                <p className="insight-title" id={buildId('type-title')}>
+                  Type
+                </p>
+                <p id={buildId('type-value')}>{analysis.type}</p>
+                {analysis.addressMetadata?.category === 'multicast' &&
+                  analysis.addressMetadata.service && (
+                    <p className="insight-meta" id={buildId('multicast-service')}>
+                      Service: {analysis.addressMetadata.service}
+                    </p>
+                  )}
+              </div>
+              <div id={buildId('class-summary')}>
+                <p className="insight-title" id={buildId('class-title')}>
+                  Class
+                </p>
+                <p id={buildId('class-value')}>{analysis.ipClass}</p>
+              </div>
+              <div id={buildId('next-networks')}>
+                <p className="insight-title" id={buildId('next-networks-title')}>
+                  Next networks
+                </p>
+                {analysis.nextNetworks.length > 0 ? (
+                  <ul className="insight-list" id={buildId('next-networks-list')}>
+                    {analysis.nextNetworks.map((network, index) => (
+                      <li key={network} id={buildId(`next-network-${index}`)}>
+                        {network}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="insight-meta" id={buildId('next-networks-empty')}>
+                    No further networks within range.
                   </p>
                 )}
-              </div>
-              <div id="ipv4-class-summary">
-                <p className="insight-title">Class</p>
-                <p>{analysis.ipClass}</p>
               </div>
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Design agent: Component exposing IPv4 insights with per-entry panels and Route Summarizer behaviour.
+// Developer agent: Drives an editable list of IPv4/CIDR inputs, each backed by an independent insight card.
+function IpInspector() {
+  const [entries, setEntries] = useState(['']);
+  const inputRefs = useRef([]);
+
+  // Design agent: Compute live insight data for every entry while caching between renders.
+  // Developer agent: Keeps expensive IPv4 math within memoisation bounds for performance.
+  const analyses = useMemo(() => {
+    return entries.map((value) => buildInsightAnalysis(value));
+  }, [entries]);
+
+  // Design agent: Moves the caret to a specific IPv4 field after auto-expansion.
+  // Developer agent: Ensures newly created inputs receive focus immediately.
+  const focusEntryField = (index) => {
+    queueMicrotask(() => {
+      const element = inputRefs.current[index];
+      if (element) {
+        const length = element.value.length;
+        element.focus();
+        element.setSelectionRange(length, length);
+      }
+    });
+  };
+
+  // Design agent: Propagates edits through the inspector entries while keeping them normalised.
+  // Developer agent: Updates the entry list and advances focus when a valid CIDR is completed.
+  const handleEntryChange = (index, value, caretPosition) => {
+    setEntries((previous) => {
+      const next = [...previous];
+      next[index] = value;
+      return normaliseInspectorEntries(next);
+    });
+
+    const trimmed = value.trim();
+    const parsed = parseCidr(trimmed);
+    const caretAtEnd = typeof caretPosition === 'number' && caretPosition === value.length;
+    if (caretAtEnd && parsed) {
+      const nextIndex = Math.min(index + 1, MAX_INSPECTOR_FIELDS - 1);
+      focusEntryField(nextIndex);
+      return;
+    }
+
+    const cidrMatch = value.match(/\/(\d{1,2})$/);
+    const prefixNumber = cidrMatch ? Number(cidrMatch[1]) : null;
+    const hasCompletePrefix =
+      cidrMatch != null && cidrMatch[1].length >= 2 && prefixNumber != null && prefixNumber <= 32;
+
+    if (caretAtEnd && hasCompletePrefix) {
+      const nextIndex = Math.min(index + 1, MAX_INSPECTOR_FIELDS - 1);
+      focusEntryField(nextIndex);
+    }
+  };
+
+  // Design agent: Mirrors Route Summarizer key behaviour for fast keyboard-driven input.
+  // Developer agent: Navigates the entry list with Enter/Backspace shortcuts.
+  const handleEntryKeyDown = (event, index) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const nextIndex = Math.min(index + 1, entries.length - 1);
+      focusEntryField(nextIndex);
+      return;
+    }
+
+    if (event.key === 'Backspace' && entries[index].trim() === '' && index > 0) {
+      event.preventDefault();
+      focusEntryField(index - 1);
+    }
+  };
+
+  return (
+    <div className="column-content" id="ipv4-insight-panel">
+      <div className="field-group" id="ipv4-insight-field-group">
+        <span className="field-group-label" id="ipv4-insight-field-label">
+          IPv4 / CIDR entries
+        </span>
+        {entries.map((value, index) => (
+          <div
+            className="insight-entry"
+            id={`ipv4-insight-entry-${index}`}
+            key={`ipv4-insight-entry-${index}`}
+          >
+            <label
+              className="field"
+              htmlFor={`ipv4-insight-input-${index}`}
+              id={`ipv4-insight-label-${index}`}
+            >
+              <span id={`ipv4-insight-input-label-${index}`}>IPv4 / CIDR {index + 1}</span>
+              <input
+                ref={(element) => {
+                  inputRefs.current[index] = element;
+                }}
+                id={`ipv4-insight-input-${index}`}
+                value={value}
+                placeholder="e.g. 10.0.0.125/24"
+                className="field-input"
+                onChange={(event) =>
+                  handleEntryChange(index, event.target.value, event.target.selectionStart)
+                }
+                onKeyDown={(event) => handleEntryKeyDown(event, index)}
+              />
+            </label>
+            <InspectorCard analysis={analyses[index]} entryIndex={index} />
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -510,6 +510,7 @@
   font-size: 0.75rem;
   color: rgba(232, 234, 255, 0.55);
   transition: transform 160ms ease;
+  margin-left: 0.6rem;
 }
 
 .ip-examples[open] > summary {
@@ -547,6 +548,11 @@
   font-size: 0.72rem;
   color: rgba(232, 234, 255, 0.48);
   margin-top: 0.25rem;
+}
+
+.field-hint-offset {
+  color: rgba(232, 234, 255, 0.68);
+  font-weight: 600;
 }
 
 .ip-examples-result {
@@ -606,6 +612,86 @@
   gap: 1.35rem;
 }
 
+.insight-card--collapsible {
+  gap: 1rem;
+}
+
+.insight-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.insight-card-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.insight-card-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(232, 234, 255, 0.58);
+}
+
+.insight-card-summary {
+  font-weight: 600;
+  color: rgba(244, 246, 255, 0.82);
+}
+
+.insight-card-toggle {
+  appearance: none;
+  border: 1px solid rgba(140, 123, 255, 0.45);
+  background: rgba(13, 16, 29, 0.75);
+  color: rgba(232, 234, 255, 0.9);
+  padding: 0.35rem 0.75rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.insight-card-toggle:hover {
+  border-color: rgba(140, 123, 255, 0.75);
+  background: rgba(20, 22, 38, 0.85);
+  transform: translateY(-1px);
+}
+
+.insight-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.insight-card.is-collapsed .insight-card-body {
+  display: none;
+}
+
+.insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  color: rgba(232, 234, 255, 0.78);
+  font-size: 0.85rem;
+}
+
+.auxiliary-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auxiliary-inputs .field {
+  margin: 0;
+}
+
 .progress-wrapper {
   position: relative;
   display: flex;
@@ -662,21 +748,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
+  border: 1px solid transparent;
 }
 
 .progress-indicator.is-hovered {
   box-shadow: 0 20px 34px -18px rgba(79, 216, 255, 0.85);
-}
-
-.progress-indicator::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 6px 6px 0 6px;
-  border-style: solid;
-  border-color: var(--md-on-background) transparent transparent transparent;
 }
 
 /* Design agent: Floating tooltip that follows the pointer over the progress track. */
@@ -925,6 +1001,28 @@ details.ip-examples > summary {
   padding: 0.35rem 0;
 }
 details.ip-examples > summary::-webkit-details-marker { display: none; }
+
+.address-explorer-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(232, 234, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.address-explorer-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--layer-color-b);
+  cursor: pointer;
+}
+
+.address-explorer-toggle span {
+  pointer-events: none;
+}
 
 /* Design agent: Hide all result-meta information in Method 2 layer breakdown. */
 #method-two-layer-breakdown .result-meta { display: none !important; }

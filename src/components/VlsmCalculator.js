@@ -308,6 +308,9 @@ const buildSliderPlan = (parsedSupernet, handles) => {
     const bits = Math.max(0, handle.prefix - previousPrefix);
     const networkCount = 2 ** bits;
     const addressesPerNetwork = 2 ** (MAX_SLIDER_PREFIX - handle.prefix);
+    // Design agent: Flags octet-aligned layers so path offsets can respect readability cues.
+    // Developer agent: Exposes readability metadata for downstream explorer logic.
+    const isReadable = handle.prefix % 8 === 0;
     layers.push({
       bits,
       prefix: handle.prefix,
@@ -316,6 +319,7 @@ const buildSliderPlan = (parsedSupernet, handles) => {
       label: handle.label ?? `Layer ${index + 1}`,
       networkCount,
       addressesPerNetwork,
+      isReadable,
     });
     previousPrefix = handle.prefix;
   });
@@ -350,6 +354,9 @@ function VlsmCalculator() {
   const [layerExampleInputs, setLayerExampleInputs] = useState(['1']);
   // Design agent: Tracks the host index requested in the IP example helper.
   const [exampleHostIndex, setExampleHostIndex] = useState('1');
+  // Design agent: Allows path explorers to apply readability-based offsets when desired.
+  // Developer agent: Stores whether octet-aligned layers should shift by an extra network.
+  const [applyReadableOffsets, setApplyReadableOffsets] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState([]);
   const inputRefs = useRef([]);
 
@@ -631,10 +638,14 @@ function VlsmCalculator() {
         return;
       }
       const blockSize = 2 ** (MAX_SLIDER_PREFIX - layer.prefix);
-      const increment = (selection - 1) * blockSize;
+      const readableOffset = applyReadableOffsets && layer.isReadable ? 1 : 0;
+      const effectiveSelection = Math.min(selection + readableOffset, layer.networkCount);
+      const increment = Math.max(0, (effectiveSelection - 1) * blockSize);
       address += increment;
       layerSummaries.push({
         selection,
+        effectiveSelection,
+        appliedOffset: effectiveSelection - selection,
         prefix: layer.prefix,
         networkAddress: address,
         formattedNetwork: intToIpv4(address),
@@ -643,7 +654,9 @@ function VlsmCalculator() {
 
     const networkAddress = address;
     const finalPrefix = layers.length > 0 ? layers[layers.length - 1].prefix : methodTwoPlan.host.prefix;
-    const hostAddress = networkAddress + Math.max(0, clampedHost - 1);
+    const hostOffsetCapacity = Math.max(0, hostCapacity - 1);
+    const resolvedHostOffset = hostCapacity <= 1 ? 0 : Math.min(clampedHost, hostOffsetCapacity);
+    const hostAddress = networkAddress + resolvedHostOffset;
 
     return {
       networkAddress,
@@ -652,8 +665,9 @@ function VlsmCalculator() {
       hostIndex: clampedHost,
       layerSummaries,
       hostCapacity,
+      resolvedHostOffset,
     };
-  }, [exampleHostIndex, layerExampleInputs, methodTwoPlan]);
+  }, [applyReadableOffsets, exampleHostIndex, layerExampleInputs, methodTwoPlan]);
 
   // Design agent: Produces coloured segments for the resolved example address.
 const exampleDisplaySegments = useMemo(() => {
@@ -714,6 +728,12 @@ const handleBaseChange = (event) => {
   // Design agent: Updates the supernet used in method 2.
   const handleSupernetChange = (event) => {
     setPathSupernet(event.target.value);
+  };
+
+  // Design agent: Lets planners quickly toggle readability offsets without leaving the explorer.
+  // Developer agent: Syncs the checkbox state that drives per-layer +1 adjustments.
+  const handleReadableOffsetChange = (event) => {
+    setApplyReadableOffsets(event.target.checked);
   };
 
   // Design agent: Applies slider movements to a given layer handle.
@@ -1021,7 +1041,7 @@ const handleBaseChange = (event) => {
                 <ul className="result-list compact" id="method-two-layer-breakdown">
                   {methodTwoPlan.layers.map((layer) => {
                     const layerColour = LAYER_PALETTE[layer.index % LAYER_PALETTE.length];
-                    const isReadable = layer.prefix % 8 === 0;
+                    const isReadable = layer.isReadable;
                     const exampleSummary = exampleAnalysis?.layerSummaries?.[layer.index];
                     const layerLabelValue = layer.label ?? '';
                     const trimmedLayerLabel = layerLabelValue.trim();
@@ -1051,7 +1071,26 @@ const handleBaseChange = (event) => {
                 </ul>
                 {/* Design agent: Address Explorer follows the breakdown for contextual flow. */}
                 <details className="ip-examples" id="method-two-address-explorer">
-                  <summary id="method-two-address-explorer-summary">Address explorer</summary>
+                  <summary id="method-two-address-explorer-summary">
+                    <span id="method-two-address-explorer-title">Address explorer</span>
+                    <label
+                      className="address-explorer-toggle"
+                      id="method-two-readable-offset"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <input
+                        id="method-two-readable-offset-checkbox"
+                        type="checkbox"
+                        checked={applyReadableOffsets}
+                        onChange={(event) => {
+                          event.stopPropagation();
+                          handleReadableOffsetChange(event);
+                        }}
+                        onClick={(event) => event.stopPropagation()}
+                      />
+                      <span id="method-two-readable-offset-label">Readable layer +1</span>
+                    </label>
+                  </summary>
                   <div className="ip-examples-body">
                     <p className="ip-examples-intro">
                       Choose network indices per layer and optionally a host index to preview the resulting address.
@@ -1083,8 +1122,13 @@ const handleBaseChange = (event) => {
                               Up to {layer.networkCount.toLocaleString()} networks
                             </span>
                             {exampleSummary && (
-                              <span className="field-hint">
+                              <span className="field-hint" id={`layer-${layer.id}-resolved`}>
                                 Resolves to {exampleSummary.formattedNetwork}/{layer.prefix}
+                                {exampleSummary.appliedOffset !== 0 && (
+                                  <span className="field-hint-offset" id={`layer-${layer.id}-offset`}>
+                                    {' '}(offset +{exampleSummary.appliedOffset})
+                                  </span>
+                                )}
                               </span>
                             )}
                           </label>

@@ -124,3 +124,22 @@ export function getTotalAddressCount(prefix) {
   const hostBits = 32 - prefix;
   return 2 ** hostBits;
 }
+
+// Developer agent: Determines if two network ranges overlap.
+// Design agent: Provides a boolean check for visual overlap indicators.
+export function doNetworksOverlap(networkA, networkB) {
+  return (
+    (networkA.network <= networkB.broadcast && networkA.broadcast >= networkB.network)
+  );
+}
+
+// Developer agent: Calculates the number of addresses in the overlapping region of two networks.
+// Design agent: Quantifies the shared address space for overlap metrics.
+export function getOverlapSize(networkA, networkB) {
+  const overlapStart = Math.max(networkA.network, networkB.network);
+  const overlapEnd = Math.min(networkA.broadcast, networkB.broadcast);
+  if (overlapEnd < overlapStart) {
+    return 0;
+  }
+  return overlapEnd - overlapStart + 1;
+}

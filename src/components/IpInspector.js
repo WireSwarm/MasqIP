@@ -13,6 +13,7 @@ import {
 } from '../utils/ipMath';
 import { normaliseWithTail } from '../utils/listNormalization';
 import { createBitGradientStyle } from '../utils/bitStyling';
+import OverallSummaryCard from './OverallSummaryCard';
 
 // Design agent: Defines the chromatic palette used for network and host highlights.
 const INSPECTOR_COLORS = {
@@ -805,6 +806,7 @@ function IpInspector() {
                 }
                 onKeyDown={(event) => handleEntryKeyDown(event, index)}
                 onFocus={() => setActiveEntryIndex(index)}
+                autoComplete="off"
               />
             </label>
             <InspectorCard
@@ -822,6 +824,9 @@ function IpInspector() {
           </div>
         ))}
       </div>
+      {validEntryCount >= 2 && (
+        <OverallSummaryCard analyses={analyses} />
+      )}
     </div>
   );
 }

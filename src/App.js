@@ -3,10 +3,9 @@
 import './styles/materialTheme.css';
 import './App.css';
 import VlsmCalculator from './components/VlsmCalculator';
-import RouteSummarizer from './components/RouteSummarizer';
 import IpInspector from './components/IpInspector';
 
-// Design agent: Hosts the three primary IPv4 tools inside a Material-inspired glassmorphism layout.
+// Design agent: Hosts the primary IPv4 tools inside a Material-inspired glassmorphism layout.
 function App() {
   // Design agent: Defensive component wrapper to avoid runtime crashes if a component import fails.
   const SafeMount = ({ component: Comp, name }) => {
@@ -49,16 +48,6 @@ function App() {
             </p>
           </div>
           <SafeMount component={VlsmCalculator} name="VlsmCalculator" />
-        </section>
-
-        <section className="tool-card" id="tool-card-summarizer">
-          <div className="card-header" id="card-header-summarizer">
-            <h2 id="card-title-summarizer">Route Summarizer</h2>
-            <p id="card-desc-summarizer">
-              Aggregate multiple networks into the tightest covering prefix as you type.
-            </p>
-          </div>
-          <SafeMount component={RouteSummarizer} name="RouteSummarizer" />
         </section>
 
         <section className="tool-card" id="tool-card-inspector">

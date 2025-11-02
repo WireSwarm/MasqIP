@@ -1,0 +1,290 @@
+/* Design agent: Elevates the consolidated summary card with a frosted glass treatment and ambient glow. */
+/* Developer agent: Applies shared elevation tokens to keep styling consistent with the rest of the suite. */
+.overall-summary-card {
+  margin-top: var(--spacing-xl);
+  /* Design agent: Replaces the surface wash with layered nebula-style gradients for a calmer violet tone. */
+  /* Developer agent: Builds the palette from existing tokens so the card stays in sync with theme changes. */
+  background:
+    radial-gradient(
+      circle at 18% 18%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.02) 0%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0) 58%
+    ),
+    radial-gradient(
+      circle at 82% 12%,
+      rgba(var(--md-sys-color-secondary-alt-rgb), 0.015) 0%,
+      rgba(var(--md-sys-color-secondary-alt-rgb), 0) 52%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(var(--md-sys-color-surface-night-rgb), 0.08) 0%,
+      rgba(var(--md-sys-color-surface-rich-rgb), 0.05) 45%,
+      rgba(var(--md-sys-color-surface-deep-rgb), 0.08) 100%
+    );
+  backdrop-filter: blur(16px);
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 24px 46px -28px rgba(var(--md-sys-color-shadow-deep-rgb), 0.85);
+  /* Design agent: Tightens the container padding so the summary reads lighter at default zoom. */
+  /* Developer agent: Replaces the exaggerated bottom padding with a balanced clamp for consistent spacing. */
+  padding: clamp(0.85rem, 2.4vw, 1.75rem);
+  padding-bottom: clamp(1.4rem, 3vw, 2.6rem);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-inline: auto;
+  max-width: 1080px;
+  width: 100%;
+}
+
+/* Design agent: Projects a subtle diagonal light sweep across the card surface for depth. */
+/* Developer agent: Uses a pseudo-element to avoid extra DOM nodes and keep rendering performant. */
+.overall-summary-card::before {
+  content: '';
+  position: absolute;
+  inset: -35%;
+  background:
+    radial-gradient(
+      circle at 25% 25%,
+      rgba(var(--md-sys-color-primary-rgb), 0.035) 0%,
+      rgba(var(--md-sys-color-primary-rgb), 0.015) 34%,
+      transparent 68%
+    ),
+    radial-gradient(
+      circle at 78% 22%,
+      rgba(var(--md-sys-color-secondary-rgb), 0.03) 0%,
+      rgba(var(--md-sys-color-secondary-rgb), 0.012) 40%,
+      transparent 72%
+    );
+  opacity: 0.16;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Design agent: Aligns header typography with a clean flex row and luminous underline. */
+/* Developer agent: Removes brittle border styling in favour of a pseudo-element accent. */
+.overall-summary-card .insight-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 var(--spacing-medium) 0;
+  border: none;
+  position: relative;
+  z-index: 1;
+}
+
+/* Design agent: Adds an illuminated underline that reinforces the section hierarchy. */
+/* Developer agent: Keeps the accent purely decorative so screen readers ignore it. */
+.overall-summary-card .insight-card-header::after {
+  content: '';
+  position: relative;
+  inset: auto 0 calc(var(--spacing-medium) * -0.3);
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--md-sys-color-primary-rgb), 0.35) 0%,
+    rgba(var(--md-sys-color-tertiary-rgb), 0.2) 50%,
+    transparent 100%
+  );
+  opacity: 0.8;
+}
+
+/* Design agent: Tightens text lockup to aid readability on the luminous background. */
+/* Developer agent: Ensures header text inherits the elevated z-index for clarity. */
+.overall-summary-card .insight-card-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  z-index: 1;
+}
+
+/* Design agent: Locks the summary grid to two lean columns so the card feels less zoomed at desktop widths. */
+/* Developer agent: Uses row/column gap clamps to maintain breathing room without oversized gutters. */
+.overall-summary-card .insight-card-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: clamp(1.35rem, 3vw, 2rem);
+  row-gap: clamp(1.45rem, 3.2vw, 2.25rem);
+  padding: clamp(1rem, 2.4vw, 1.75rem) clamp(1.2rem, 2.8vw, 2rem) clamp(1.25rem, 3vw, 2.2rem);
+  position: relative;
+  z-index: 1;
+}
+
+/* Design agent: Treats each category as its own frosted tile with interactive lift. */
+/* Developer agent: Keeps hover states GPU-friendly with simple transforms and opacity changes. */
+.summary-section {
+  display: grid;
+  align-content: start;
+  gap: clamp(0.85rem, 1.35vw, 1.2rem);
+  padding: clamp(0.9rem, 1.85vw, 1.45rem);
+  border-radius: 22px;
+  min-width: 0;
+  /* Design agent: Paints each tile with a subdued violet glass gradient to match the global theme. */
+  /* Developer agent: Uses palette tokens so future theme tweaks propagate automatically. */
+  background:
+    radial-gradient(
+      120% 140% at 18% 12%,
+      rgba(var(--md-sys-color-primary-rgb), 0.012) 0%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.008) 28%,
+      transparent 68%
+    ),
+    radial-gradient(
+      120% 160% at 78% 82%,
+      rgba(var(--md-sys-color-primary-shadow-rgb), 0.01) 0%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.06) 62%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.12) 100%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(var(--md-sys-color-surface-rich-rgb), 0.06) 0%,
+      rgba(var(--md-sys-color-primary-rgb), 0.015) 56%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.08) 100%
+    );
+  border: 1px solid rgba(var(--md-sys-color-primary-shadow-rgb), 0.38);
+  box-shadow:
+    0 18px 38px -28px rgba(var(--md-sys-color-shadow-deep-rgb), 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+  transition: none;
+  min-height: auto;
+}
+
+/* Design agent: Introduces an inner glow on hover to signal interactivity subtly. */
+/* Developer agent: Keeps hover work off the main layout by using opacity instead of layout changes. */
+.summary-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    conic-gradient(
+      from 180deg at 30% 30%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.015) 0deg,
+      rgba(var(--md-sys-color-primary-rgb), 0.01) 110deg,
+      rgba(255, 255, 255, 0) 220deg
+    );
+  opacity: 0;
+  transition: opacity 220ms ease;
+  z-index: 0;
+}
+
+/* Design agent: Slightly lifts the tile while brightening its glow to reward pointer focus. */
+/* Developer agent: Keeps the transform lightweight to avoid triggering expensive repaints. */
+.summary-section:hover {
+  transform: none;
+  box-shadow:
+    0 18px 38px -28px rgba(var(--md-sys-color-shadow-deep-rgb), 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: rgba(var(--md-sys-color-primary-shadow-rgb), 0.38);
+}
+
+.summary-section:hover::before {
+  opacity: 0;
+}
+
+/* Design agent: Repositions section headings for a crisp divider effect. */
+/* Developer agent: Removes default margins to maintain consistent vertical rhythm. */
+.section-title {
+  /* Design agent: Scales down headings so the hierarchy stays crisp without overpowering the content. */
+  /* Developer agent: Uses clamp to respect accessibility minimums while adapting to viewport width. */
+  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  color: var(--text-color-primary);
+  margin: 0;
+  padding-bottom: var(--spacing-small);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  position: relative;
+  z-index: 1;
+}
+
+/* Design agent: Structures each metric as a compact label/value stack. */
+/* Developer agent: Uses grid layout to keep labels and numbers aligned without extra wrappers. */
+.summary-stat {
+  display: grid;
+  gap: 0.3rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Design agent: Styles labels with subtle uppercase tracking for clarity. */
+/* Developer agent: Keeps the label semantic while supporting translations with generous spacing. */
+.summary-stat-label {
+  /* Design agent: Uses a tighter uppercase label to reduce visual weight while keeping clarity. */
+  /* Developer agent: Slightly lowers the base size to align with the new body scale. */
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--md-sys-color-on-surface-rgb), 0.72);
+  line-height: 1.35;
+}
+
+/* Design agent: Wraps values in pill-shaped badges that echo the primary brand gradients. */
+/* Developer agent: Uses inline-flex so text remains vertically centred regardless of content length. */
+.summary-stat-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-size: clamp(0.92rem, 1vw + 0.6rem, 1.08rem);
+  font-weight: 600;
+  color: var(--text-color-primary);
+  background: linear-gradient(
+    135deg,
+    rgba(var(--md-sys-color-primary-rgb), 0.06) 0%,
+    rgba(var(--md-sys-color-secondary-rgb), 0.04) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  max-width: 100%;
+  flex-wrap: wrap;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* Design agent: Applies a calmer palette when a value represents an unavailable state. */
+/* Developer agent: Keeps class-based modifiers to simplify conditional rendering from React. */
+.summary-stat-value-unavailable {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(var(--md-sys-color-on-background-rgb), 0.52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+/* Design agent: Slightly scales the emphasised metric to anchor attention on primary data. */
+/* Developer agent: Targets only the value badge to avoid layout shifts in the parent grid. */
+.summary-stat.summary-stat-emphasis .summary-stat-value {
+  font-size: clamp(1rem, 1.1vw + 0.65rem, 1.2rem);
+  padding: 0.35rem 0.9rem;
+}
+
+/* Design agent: Provides breathing room on narrow devices without sacrificing polish. */
+/* Developer agent: Reduces spacing to prevent overflow on small screens. */
+@media (max-width: 640px) {
+  .overall-summary-card {
+    padding: clamp(1.25rem, 4vw, 1.85rem);
+  }
+
+  .summary-section {
+    padding: clamp(0.75rem, 3vw, 1.15rem);
+  }
+
+  .summary-stat-value {
+    font-size: clamp(0.88rem, 3vw, 1.02rem);
+    padding: 0.28rem 0.6rem;
+  }
+}
+
+@media (max-width: 880px) {
+  /* Design agent: Returns to an auto-fit grid on tighter widths so the two-column lock doesn’t cause horizontal squeeze. */
+  /* Developer agent: Keeps the reduced spacing tokens while allowing cards to stack gracefully. */
+  .overall-summary-card .insight-card-body {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    column-gap: clamp(1rem, 4vw, 1.6rem);
+    row-gap: clamp(1.1rem, 4vw, 1.8rem);
+    padding: clamp(0.85rem, 3.2vw, 1.4rem);
+  }
+}

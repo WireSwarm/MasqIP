@@ -1,0 +1,49 @@
+/* Design agent: Styles for the consolidated Overall Summary Card. */
+.overall-summary-card {
+  margin-top: var(--spacing-xl);
+  background-color: rgba(var(--surface-color-rgb), 0.7);
+  backdrop-filter: blur(8px);
+}
+
+.overall-summary-card .insight-card-header {
+  border-bottom: 1px solid var(--layer-color-b);
+  padding-bottom: var(--spacing-medium);
+}
+
+.overall-summary-card .insight-card-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--spacing-large);
+  padding-top: var(--spacing-medium);
+}
+
+.summary-section {
+  background-color: transparent;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.section-title {
+  font-size: var(--font-size-h4);
+  color: var(--text-color-primary);
+  margin-bottom: var(--spacing-medium);
+  padding-bottom: var(--spacing-small);
+  border-bottom: 1px solid var(--layer-color-c);
+  font-weight: 500;
+}
+
+.summary-section p {
+  color: var(--text-color-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1.6;
+  margin-bottom: var(--spacing-small);
+  display: flex;
+  justify-content: space-between;
+}
+
+.summary-section p strong {
+  color: var(--text-color-primary);
+  font-weight: 600;
+  text-align: right;
+}

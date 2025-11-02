@@ -826,6 +826,7 @@ const handleBaseChange = (event) => {
               onChange={handleBaseChange}
               placeholder="e.g. 192.168.0.0/24"
               className="field-input"
+              autoComplete="off"
             />
           </label>
 
@@ -848,6 +849,7 @@ const handleBaseChange = (event) => {
                       handleHostChange(index, 'hosts', event.target.value.replace(/[^\d]/g, ''))
                     }
                     onKeyDown={(event) => handleKeyDown(event, index)}
+                    autoComplete="off"
                   />
                   <input
                     value={entry.multiplier}
@@ -858,6 +860,7 @@ const handleBaseChange = (event) => {
                     onChange={(event) =>
                       handleHostChange(index, 'multiplier', event.target.value.replace(/[^\d]/g, ''))
                     }
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -942,6 +945,7 @@ const handleBaseChange = (event) => {
               onChange={handleSupernetChange}
               placeholder="e.g. 10.0.0.0/8"
               className="field-input"
+              autoComplete="off"
             />
           </label>
 
@@ -1018,6 +1022,7 @@ const handleBaseChange = (event) => {
                             className="result-title result-title-input"
                             aria-label={`Rename ${readableLayerLabel}`}
                             placeholder={fallbackLayerLabel}
+                            autoComplete="off"
                           />
                           <span className={`readable-tag ${isReadable ? 'is-readable' : 'is-unreadable'}`}>
                             Readable: {isReadable ? 'Yes' : 'No'}
@@ -1076,6 +1081,7 @@ const handleBaseChange = (event) => {
                               className="field-input"
                               inputMode="numeric"
                               aria-describedby={`layer-${layer.id}-hint`}
+                              autoComplete="off"
                             />
                             <span id={`layer-${layer.id}-hint`} className="field-hint">
                               Up to {layer.networkCount.toLocaleString()} networks
@@ -1102,6 +1108,7 @@ const handleBaseChange = (event) => {
                           className="field-input"
                           inputMode="numeric"
                           aria-describedby="host-index-hint"
+                          autoComplete="off"
                         />
                         <span id="host-index-hint" className="field-hint">
                           Up to {methodTwoPlan.host.hostAddresses.toLocaleString()} addresses

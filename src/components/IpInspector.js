@@ -2,7 +2,6 @@
 // Developer agent: De-duplicates normalisation and gradient logic to simplify future changes.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  commonPrefixLength,
   formatMask,
   formatWildcard,
   getAddressMetadata,
@@ -14,7 +13,7 @@ import {
 } from '../utils/ipMath';
 import { normaliseWithTail } from '../utils/listNormalization';
 import { createBitGradientStyle } from '../utils/bitStyling';
-import Ipv4InsightSummary from './Ipv4InsightSummary';
+import OverallSummaryCard from './OverallSummaryCard';
 
 // Design agent: Defines the chromatic palette used for network and host highlights.
 const INSPECTOR_COLORS = {
@@ -643,35 +642,6 @@ function IpInspector() {
     return entries.map((value) => buildInsightAnalysis(value));
   }, [entries]);
 
-  const routeSummary = useMemo(() => {
-    const validNetworks = analyses.map(a => a.parsed).filter(Boolean);
-
-    if (validNetworks.length < 2) {
-      return { available: false };
-    }
-
-    let minIp = Infinity;
-    let maxIp = -Infinity;
-
-    for (const network of validNetworks) {
-      minIp = Math.min(minIp, network.network, network.broadcast);
-      maxIp = Math.max(maxIp, network.network, network.broadcast);
-    }
-    
-    if (minIp === Infinity || maxIp === -Infinity) {
-        return { available: false };
-    }
-
-    const prefix = commonPrefixLength(minIp, maxIp);
-    const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
-    const summaryNetwork = minIp & mask;
-
-    return {
-      available: true,
-      summary: `${intToIpv4(summaryNetwork >>> 0)}/${prefix}`,
-    };
-  }, [analyses]);
-
   // Design agent: Tallies valid IPv4 rows, treating bare hosts as acceptable targets for insight cards.
   // Developer agent: Reads directly from the source entries so thresholds mirror the latest user edits.
   const validEntryCount = useMemo(() => {
@@ -836,6 +806,7 @@ function IpInspector() {
                 }
                 onKeyDown={(event) => handleEntryKeyDown(event, index)}
                 onFocus={() => setActiveEntryIndex(index)}
+                autoComplete="off"
               />
             </label>
             <InspectorCard
@@ -853,19 +824,9 @@ function IpInspector() {
           </div>
         ))}
       </div>
-      {isCollapseEnabled && validEntryCount >= 2 && (
-        <Ipv4InsightSummary analyses={analyses} />
+      {validEntryCount >= 2 && (
+        <OverallSummaryCard analyses={analyses} />
       )}
-      <div className="result-card" id="inspector-route-summary">
-        <h4 className="section-title" id="inspector-route-summary-title">Route Summary</h4>
-        <p id="inspector-route-summary-value">
-          {routeSummary.available ? (
-            <strong>{routeSummary.summary}</strong>
-          ) : (
-            'Not Available'
-          )}
-        </p>
-      </div>
     </div>
   );
 }

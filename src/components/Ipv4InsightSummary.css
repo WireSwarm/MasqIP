@@ -2,7 +2,6 @@
 .ipv4-insight-summary {
   background-color: rgba(var(--surface-color-rgb), 0.8);
   backdrop-filter: blur(10px);
-  border: 1px solid var(--layer-color-b);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-large);
   margin-top: var(--spacing-xl);

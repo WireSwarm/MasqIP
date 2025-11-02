@@ -1,3 +1,5 @@
+/* Design agent: Styles the hierarchical CIDR slider with the shared Material palette. */
+/* Developer agent: Applies theme variables for consistent alpha ramps and surfaces. */
 .hierarchical-slider {
   display: flex;
   flex-direction: column;
@@ -20,7 +22,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 600;
-  color: rgba(232, 234, 255, 0.6);
+  color: rgba(var(--md-sys-color-on-surface-rgb), 0.6);
 }
 
 .slider-actions {
@@ -43,8 +45,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(140, 123, 255, 0.28);
-  background: rgba(13, 16, 29, 0.78);
+  border: 1px solid rgba(var(--md-sys-color-primary-rgb), 0.28);
+  background: rgba(var(--md-sys-color-surface-subtle-rgb), 0.78);
   color: var(--md-on-surface);
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
@@ -52,7 +54,7 @@
 .slider-button:enabled:hover {
   transform: translateY(-2px);
   border-color: var(--md-primary);
-  box-shadow: 0 10px 24px -12px rgba(140, 123, 255, 0.55);
+  box-shadow: 0 10px 24px -12px rgba(var(--md-sys-color-primary-rgb), 0.55);
 }
 
 .slider-button:disabled {
@@ -95,8 +97,8 @@
   background: var(--layer-host-color);
   overflow: hidden;
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 18px 34px -18px rgba(16, 18, 46, 0.85);
+    inset 0 0 0 1px rgba(var(--md-sys-color-glass-rgb), 0.18),
+    0 18px 34px -18px rgba(var(--md-sys-color-surface-slate-rgb), 0.85);
 }
 
 .slider-track-segment {
@@ -110,21 +112,21 @@
   transform: translate(-50%, -135%);
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
-  background: rgba(18, 21, 42, 0.92);
-  color: rgba(250, 251, 255, 0.9);
+  background: rgba(var(--md-sys-color-tooltip-rgb), 0.92);
+  color: rgba(var(--md-sys-color-on-background-rgb), 0.9);
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   pointer-events: none;
   white-space: nowrap;
-  box-shadow: 0 14px 28px -18px rgba(12, 14, 36, 0.9);
+  box-shadow: 0 14px 28px -18px rgba(var(--md-sys-color-overlay-deep-rgb), 0.9);
 }
 
 .slider-track-overlay {
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(12, 14, 26, 0.75));
+  background: linear-gradient(180deg, rgba(var(--md-sys-color-glass-rgb), 0.08), rgba(var(--md-sys-color-overlay-rgb), 0.75));
   pointer-events: none;
   mix-blend-mode: screen;
 }
@@ -136,8 +138,8 @@
   width: 0.85rem;
   height: 3.1rem;
   border-radius: 0.55rem;
-  border: 1px solid rgba(66, 70, 105, 0.45);
-  background: linear-gradient(180deg, rgba(244, 246, 255, 0.94), rgba(208, 214, 236, 0.88));
+  border: 1px solid rgba(var(--md-sys-color-outline-rgb), 0.45);
+  background: linear-gradient(180deg, rgba(var(--md-sys-color-highlight-rgb), 0.94), rgba(var(--md-sys-color-highlight-soft-rgb), 0.88));
   color: var(--md-primary);
   font-weight: 700;
   cursor: pointer;
@@ -153,8 +155,8 @@
 
 .slider-handle:enabled:hover {
   transform: translate(-50%, -50%) scaleX(1.1);
-  border-color: rgba(82, 92, 140, 0.85);
-  box-shadow: 0 18px 30px -20px rgba(96, 105, 185, 0.65);
+  border-color: rgba(var(--md-sys-color-outline-strong-alt-rgb), 0.85);
+  box-shadow: 0 18px 30px -20px rgba(var(--md-sys-color-primary-shadow-rgb), 0.65);
 }
 
 .slider-handle:disabled {
@@ -166,8 +168,8 @@
   outline: none;
   border-color: var(--md-primary);
   box-shadow:
-    0 0 0 3px rgba(124, 95, 255, 0.28),
-    0 18px 30px -20px rgba(96, 105, 185, 0.65);
+    0 0 0 3px rgba(var(--md-sys-color-primary-spotlight-rgb), 0.28),
+    0 18px 30px -20px rgba(var(--md-sys-color-primary-shadow-rgb), 0.65);
 }
 
 .slider-handle-label {
@@ -178,7 +180,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: rgba(232, 234, 255, 0.75);
+  color: rgba(var(--md-sys-color-on-surface-rgb), 0.75);
   white-space: nowrap;
 }
 
@@ -189,7 +191,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(232, 234, 255, 0.45);
+  color: rgba(var(--md-sys-color-on-surface-rgb), 0.45);
 }
 
 .slider-scale-mark {
@@ -204,5 +206,5 @@
   transform: translateX(-50%);
   width: 1px;
   height: 6px;
-  background: rgba(232, 234, 255, 0.25);
+  background: rgba(var(--md-sys-color-on-surface-rgb), 0.25);
 }

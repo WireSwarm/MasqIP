@@ -1,3 +1,5 @@
+// Design agent: Streamlines the inspector with shared helpers and consistent palette usage.
+// Developer agent: De-duplicates normalisation and gradient logic to simplify future changes.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   formatMask,
@@ -9,6 +11,8 @@ import {
   ipv4ToInt,
   parseCidr,
 } from '../utils/ipMath';
+import { normaliseWithTail } from '../utils/listNormalization';
+import { createBitGradientStyle } from '../utils/bitStyling';
 
 // Design agent: Defines the chromatic palette used for network and host highlights.
 const INSPECTOR_COLORS = {
@@ -23,33 +27,13 @@ const INSPECTOR_COLOR_C = 'var(--layer-color-c)';
 
 const MAX_INSPECTOR_FIELDS = 24;
 
-// Design agent: Keeps the inspector entry list tidy with a single trailing empty row.
-// Developer agent: Normalises the IPv4 insight entries so new inputs materialise progressively.
-const normaliseInspectorEntries = (values) => {
-  const normalised = [];
-  let hasTrailingEmpty = false;
-
-  for (const value of values) {
-    if (value.trim() === '') {
-      if (!hasTrailingEmpty) {
-        normalised.push('');
-        hasTrailingEmpty = true;
-      }
-    } else {
-      normalised.push(value);
-      hasTrailingEmpty = false;
-    }
-
-    if (normalised.length === MAX_INSPECTOR_FIELDS) {
-      break;
-    }
-  }
-
-  if (!hasTrailingEmpty && normalised.length < MAX_INSPECTOR_FIELDS) {
-    normalised.push('');
-  }
-
-  return normalised;
+// Design agent: Configures the shared normaliser so the inspector maintains progressive fields.
+// Developer agent: Ensures a single trailing blank entry regardless of user edits.
+const INSPECTOR_FIELD_NORMALISER = {
+  maxItems: MAX_INSPECTOR_FIELDS,
+  createEmpty: () => '',
+  cleanValue: (value) => (typeof value === 'string' ? value : ''),
+  isEmpty: (value) => value.trim() === '',
 };
 
 // Design agent: Anticipates adjacent networks to help the user hop through sequential ranges.
@@ -90,46 +74,8 @@ const computeFreeSegments = (ipInt, usableStart, usableEnd) => {
   };
 };
 
-// Design agent: Produces a horizontal gradient for an octet that mixes network and host colours.
-const buildMixedOctetStyle = (networkBitCount, colors) => {
-  const bitSlice = [];
-  for (let index = 0; index < 8; index += 1) {
-    bitSlice.push(index < networkBitCount ? colors.network : colors.host);
-  }
-  const firstColour = bitSlice[0];
-  const isUniform = bitSlice.every((colour) => colour === firstColour);
-  if (isUniform) {
-    return { color: firstColour };
-  }
-
-  const stops = [];
-  let segmentStart = 0;
-  let currentColour = bitSlice[0];
-
-  for (let index = 1; index < bitSlice.length; index += 1) {
-    const colour = bitSlice[index];
-    if (colour !== currentColour) {
-      const startPercent = (segmentStart / bitSlice.length) * 100;
-      const endPercent = (index / bitSlice.length) * 100;
-      stops.push(`${currentColour} ${startPercent}%`, `${currentColour} ${endPercent}%`);
-      segmentStart = index;
-      currentColour = colour;
-    }
-  }
-
-  const finalStart = (segmentStart / bitSlice.length) * 100;
-  stops.push(`${currentColour} ${finalStart}%`, `${currentColour} 100%`);
-
-  return {
-    backgroundImage: `linear-gradient(90deg, ${stops.join(', ')})`,
-    backgroundClip: 'text',
-    WebkitBackgroundClip: 'text',
-    color: 'transparent',
-    WebkitTextFillColor: 'transparent',
-  };
-};
-
 // Design agent: Builds a colour-aware description for each octet of an address.
+// Developer agent: Emits deterministic segment entries so memoised views remain stable.
 const buildColorisedOctets = (address, prefix, colors) => {
   const octets = address.split('.');
   const fullNetworkOctets = Math.floor(prefix / 8);
@@ -145,10 +91,14 @@ const buildColorisedOctets = (address, prefix, colors) => {
         role: 'network',
       });
     } else if (index === fullNetworkOctets && partialBits > 0) {
+      const bitSlice = [];
+      for (let bit = 0; bit < 8; bit += 1) {
+        bitSlice.push(bit < partialBits ? colors.network : colors.host);
+      }
       segments.push({
         key: `octet-${index}`,
         value: octet,
-        style: buildMixedOctetStyle(partialBits, colors),
+        style: createBitGradientStyle(bitSlice, colors.host),
         role: 'mixed',
       });
     } else {
@@ -672,7 +622,11 @@ function InspectorCard({ analysis, entryIndex, canCollapse, isCollapsed, onToggl
 // Design agent: Component exposing IPv4 insights with per-entry panels and Route Summarizer behaviour.
 // Developer agent: Drives an editable list of IPv4/CIDR inputs, each backed by an independent insight card.
 function IpInspector() {
-  const [entries, setEntries] = useState(['']);
+  // Design agent: Seeds the inspector with a single empty entry governed by the shared normaliser.
+  // Developer agent: Uses lazy initialisation to avoid repeated work during component mounts.
+  const [entries, setEntries] = useState(() =>
+    normaliseWithTail([''], INSPECTOR_FIELD_NORMALISER)
+  );
   const inputRefs = useRef([]);
   // Design agent: Tracks collapsed panels so keyboard automation can tuck away previous insights.
   // Developer agent: Stores indices in an array to preserve predictable order when expanding/collapsing.
@@ -788,7 +742,7 @@ function IpInspector() {
     setEntries((previous) => {
       const next = [...previous];
       next[index] = value;
-      return normaliseInspectorEntries(next);
+      return normaliseWithTail(next, INSPECTOR_FIELD_NORMALISER);
     });
 
     const caretAtEnd = typeof caretPosition === 'number' && caretPosition === value.length;

@@ -1,3 +1,6 @@
+// Design agent: Loads the shared Material palette and core layouts for the MasqIP suite.
+// Developer agent: Ensures thematic variables are available before component styling executes.
+import './styles/materialTheme.css';
 import './App.css';
 import VlsmCalculator from './components/VlsmCalculator';
 import RouteSummarizer from './components/RouteSummarizer';

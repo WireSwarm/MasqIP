@@ -1,3 +1,5 @@
+// Design agent: Optimises the IPv4 route summariser by sharing core utilities across tools.
+// Developer agent: Centralises dynamic field normalisation and tightens early validation feedback.
 import { useMemo, useRef, useState } from 'react';
 import {
   commonPrefixLength,
@@ -5,42 +7,27 @@ import {
   ipv4ToInt,
   parseCidr,
 } from '../utils/ipMath';
+import { normaliseWithTail } from '../utils/listNormalization';
 
 const MAX_ROUTE_FIELDS = 24;
 
-// Design agent: Normalises network inputs so only one trailing empty field remains.
-const normaliseRouteFields = (values) => {
-  const normalised = [];
-  let hasTrailingEmpty = false;
-
-  for (const value of values) {
-    if (value.trim() === '') {
-      if (!hasTrailingEmpty) {
-        normalised.push('');
-        hasTrailingEmpty = true;
-      }
-    } else {
-      normalised.push(value);
-      hasTrailingEmpty = false;
-    }
-    if (normalised.length === MAX_ROUTE_FIELDS) {
-      break;
-    }
-  }
-
-  if (!hasTrailingEmpty && normalised.length < MAX_ROUTE_FIELDS) {
-    normalised.push('');
-  }
-
-  return normalised;
+// Design agent: Configures the shared list normaliser used for summariser inputs.
+// Developer agent: Guarantees only one trailing empty row while preserving raw user input.
+const ROUTE_FIELD_NORMALISER = {
+  maxItems: MAX_ROUTE_FIELDS,
+  createEmpty: () => '',
+  cleanValue: (value) => (typeof value === 'string' ? value : ''),
+  isEmpty: (value) => value.trim() === '',
 };
 
 // Design agent: Implements the live IPv4 route summarization helper with dynamic inputs.
+// Developer agent: Wraps state and memoised calculations to avoid unnecessary re-renders.
 function RouteSummarizer() {
-  const [routes, setRoutes] = useState(['']);
+  const [routes, setRoutes] = useState(() => normaliseWithTail([''], ROUTE_FIELD_NORMALISER));
   const inputRefs = useRef([]);
 
   // Design agent: Focuses a specific network field and places the caret at the end.
+  // Developer agent: Uses microtasks to align the caret post-render without blocking input.
   const focusRouteField = (index) => {
     queueMicrotask(() => {
       const element = inputRefs.current[index];
@@ -53,6 +40,7 @@ function RouteSummarizer() {
   };
 
   // Design agent: Calculates the aggregated summary prefix from all entered networks.
+  // Developer agent: Memoises expensive CIDR maths so UI updates stay responsive.
   const summary = useMemo(() => {
     // Design agent: Baseline reminder about the shared-mask behaviour.
     const defaultInheritanceMessage = 'Entries without a mask inherit the first specified mask.';
@@ -147,6 +135,7 @@ function RouteSummarizer() {
   }, [routes]);
 
   // Design agent: Updates a specific network field and manages focus behaviour.
+  // Developer agent: Normalises field lists and advances focus when CIDR prefixes complete.
   const handleRouteChange = (index, value, caretPosition) => {
     // Design agent: Detects when a CIDR suffix is complete so focus can advance automatically.
     const cidrMatch = value.match(/\/(\d{1,2})$/);
@@ -158,7 +147,7 @@ function RouteSummarizer() {
     setRoutes((prev) => {
       const next = [...prev];
       next[index] = value;
-      return normaliseRouteFields(next);
+      return normaliseWithTail(next, ROUTE_FIELD_NORMALISER);
     });
 
     if (caretAtEnd && hasCompletePrefix) {
@@ -168,6 +157,7 @@ function RouteSummarizer() {
   };
 
   // Design agent: Handles enter key presses to focus the next field.
+  // Developer agent: Adds keyboard affordances for faster power-user entry.
   const handleKeyDown = (event, index) => {
     if (event.key === 'Enter') {
       event.preventDefault();

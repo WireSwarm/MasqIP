@@ -1,3 +1,5 @@
+// Design agent: Optimises the hierarchical planner with shared normalisers and styling helpers.
+// Developer agent: Aligns slider state, list behaviour, and bit gradients across IPv4 tools.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   alignToBlock,
@@ -7,6 +9,8 @@ import {
   intToIpv4,
   parseCidr,
 } from '../utils/ipMath';
+import { createBitGradientStyle } from '../utils/bitStyling';
+import { normaliseWithTail } from '../utils/listNormalization';
 import HierarchicalSlider from './HierarchicalSlider';
 
 const MAX_SUBNET_FIELDS = 16;
@@ -86,45 +90,8 @@ const buildLayerBitPalette = (parsedSupernet, layers) => {
   return palette;
 };
 
-// Design agent: Builds a text style that reflects the palette assigned to each bit within an octet.
-const buildOctetGradientStyle = (bitSlice) => {
-  if (bitSlice.length === 0) {
-    return { color: CIDR_COLORS.host };
-  }
-  const firstColour = bitSlice[0];
-  const isUniform = bitSlice.every((colour) => colour === firstColour);
-  if (isUniform) {
-    return { color: firstColour };
-  }
-
-  const stops = [];
-  let segmentStart = 0;
-  let currentColour = firstColour;
-
-  for (let index = 1; index < bitSlice.length; index += 1) {
-    const colour = bitSlice[index];
-    if (colour !== currentColour) {
-      const startPercent = (segmentStart / bitSlice.length) * 100;
-      const endPercent = (index / bitSlice.length) * 100;
-      stops.push(`${currentColour} ${startPercent}%`, `${currentColour} ${endPercent}%`);
-      segmentStart = index;
-      currentColour = colour;
-    }
-  }
-
-  const finalStart = (segmentStart / bitSlice.length) * 100;
-  stops.push(`${currentColour} ${finalStart}%`, `${currentColour} 100%`);
-
-  return {
-    backgroundImage: `linear-gradient(90deg, ${stops.join(', ')})`,
-    backgroundClip: 'text',
-    WebkitBackgroundClip: 'text',
-    color: 'transparent',
-    WebkitTextFillColor: 'transparent',
-  };
-};
-
 // Design agent: Produces coloured CIDR segments for an address-preview display.
+// Developer agent: Returns stable segment objects that downstream memoised views can reuse.
 const buildExampleSegments = (address, prefix) => {
   const octets = intToIpv4(address).split('.');
   const fullNetworkOctets = Math.floor(prefix / 8);
@@ -147,7 +114,7 @@ const buildExampleSegments = (address, prefix) => {
       segments.push({
         key: `octet-${index}`,
         value: octet,
-        style: buildOctetGradientStyle(bitSlice),
+        style: createBitGradientStyle(bitSlice, CIDR_COLORS.host),
         role: 'mixed',
       });
     } else {
@@ -172,6 +139,7 @@ const buildExampleSegments = (address, prefix) => {
 };
 
 // Design agent: Applies the palette across octets so each layer colour remains visible in the formula.
+// Developer agent: Trims long formula tokens and carries gradient metadata for responsive layouts.
 const buildFormulaSegments = (octets, bitPalette) =>
   octets.map((octet, index) => {
     const trimmed = octet.length > 15 ? `${octet.slice(0, 15)}...` : octet;
@@ -180,7 +148,7 @@ const buildFormulaSegments = (octets, bitPalette) =>
     return {
       key: `formula-octet-${index}`,
       value: trimmed,
-      style: buildOctetGradientStyle(slice),
+      style: createBitGradientStyle(slice, CIDR_COLORS.host),
     };
   });
 
@@ -230,34 +198,25 @@ const buildFormulaRows = (segments) => {
 };
 
 // Design agent: Normalises subnet rows to keep a single empty trailing entry with defaults.
-const normaliseHostRows = (rows) => {
-  const normalised = [];
-  let hasTrailingEmpty = false;
-
-  for (const row of rows) {
-    const trimmedHosts = row.hosts.trim();
-    // Design agent: Keep multiplier visually empty when not provided.
-    const multiplier = row.multiplier.trim() === '' ? '' : row.multiplier;
-    if (trimmedHosts === '') {
-      if (!hasTrailingEmpty) {
-        normalised.push({ hosts: '', multiplier: '' });
-        hasTrailingEmpty = true;
-      }
-    } else {
-      normalised.push({ hosts: row.hosts, multiplier });
-      hasTrailingEmpty = false;
-    }
-    if (normalised.length === MAX_SUBNET_FIELDS) {
-      break;
-    }
-  }
-
-  if (!hasTrailingEmpty && normalised.length < MAX_SUBNET_FIELDS) {
-    normalised.push({ hosts: '', multiplier: '' });
-  }
-
-  return normalised;
-};
+// Developer agent: Delegates to the shared list normaliser to mirror behaviour across tools.
+const normaliseHostRows = (rows) =>
+  normaliseWithTail(rows, {
+    maxItems: MAX_SUBNET_FIELDS,
+    createEmpty: () => ({ hosts: '', multiplier: '' }),
+    cleanValue: (row) => {
+      const hosts = typeof row?.hosts === 'string' ? row.hosts : '';
+      const multiplierRaw = typeof row?.multiplier === 'string' ? row.multiplier : '';
+      const trimmedMultiplier = multiplierRaw.trim();
+      return {
+        hosts,
+        multiplier: trimmedMultiplier === '' ? '' : multiplierRaw,
+      };
+    },
+    isEmpty: (row) => {
+      const hosts = typeof row?.hosts === 'string' ? row.hosts : '';
+      return hosts.trim() === '';
+    },
+  });
 
 // Design agent: Produces a mask integer from a CIDR prefix length.
 const maskFromPrefix = (prefix) => {

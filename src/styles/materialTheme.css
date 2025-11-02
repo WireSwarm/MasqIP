@@ -1,0 +1,108 @@
+/* Design agent: Declares a Material Design inspired palette for the MasqIP interface. */
+/* Developer agent: Centralises colour tokens so components share consistent theming values. */
+:root {
+  /* Material reference palette */
+  --md-ref-palette-primary40: #4f46e5;
+  --md-ref-palette-primary50: #5b54f0;
+  --md-ref-palette-primary60: #818cf8;
+  --md-ref-palette-primary70: #8c7bff;
+  --md-ref-palette-secondary40: #4fd8ff;
+  --md-ref-palette-secondary60: #38bdf8;
+  --md-ref-palette-tertiary40: #f97316;
+  --md-ref-palette-tertiary60: #ffb86b;
+  --md-ref-palette-neutral10: #050612;
+  --md-ref-palette-neutral20: #141626;
+  --md-ref-palette-neutral30: #1c1e30;
+  --md-ref-palette-neutral90: #e8eaff;
+  --md-ref-palette-neutral95: #f4f6ff;
+  --md-ref-palette-error40: #ff6b81;
+
+  /* RGB shortcuts for alpha blending */
+  --md-sys-color-primary-rgb: 79, 70, 229;
+  --md-sys-color-secondary-rgb: 79, 216, 255;
+  --md-sys-color-secondary-alt-rgb: 56, 189, 248;
+  --md-sys-color-primary-alt-rgb: 111, 95, 255;
+  --md-sys-color-tertiary-rgb: 249, 115, 22;
+  --md-sys-color-tertiary-soft-rgb: 255, 184, 107;
+  --md-sys-color-background-rgb: 5, 6, 18;
+  --md-sys-color-surface-rgb: 20, 22, 38;
+  --md-sys-color-surface-variant-rgb: 28, 30, 48;
+  --md-sys-color-surface-subtle-rgb: 13, 16, 29;
+  --md-sys-color-surface-cool-rgb: 31, 34, 53;
+  --md-sys-color-surface-deep-rgb: 17, 20, 34;
+  --md-sys-color-surface-night-rgb: 18, 20, 38;
+  --md-sys-color-surface-rich-rgb: 22, 24, 40;
+  --md-sys-color-surface-midnight-rgb: 14, 17, 30;
+  --md-sys-color-surface-faint-rgb: 16, 18, 34;
+  --md-sys-color-on-surface-rgb: 232, 234, 255;
+  --md-sys-color-on-background-rgb: 244, 246, 255;
+  --md-sys-color-error-rgb: 255, 107, 129;
+  --md-sys-color-glass-rgb: 255, 255, 255;
+  --md-sys-color-shadow-rgb: 12, 10, 40;
+  --md-sys-color-shadow-soft-rgb: 15, 23, 42;
+  --md-sys-color-shadow-deep-rgb: 8, 9, 20;
+  --md-sys-color-nightfall-rgb: 8, 7, 22;
+  --md-sys-color-ink-rgb: 9, 9, 21;
+  --md-sys-color-tooltip-rgb: 18, 21, 42;
+  --md-sys-color-outline-rgb: 66, 70, 105;
+  --md-sys-color-highlight-rgb: 244, 246, 255;
+  --md-sys-color-highlight-soft-rgb: 208, 214, 236;
+  --md-sys-color-outline-strong-alt-rgb: 82, 92, 140;
+  --md-sys-color-primary-shadow-rgb: 96, 105, 185;
+  --md-sys-color-primary-spotlight-rgb: 124, 95, 255;
+  --md-sys-color-overlay-rgb: 12, 14, 26;
+  --md-sys-color-overlay-deep-rgb: 12, 14, 36;
+  --md-sys-color-overlay-mid-rgb: 15, 18, 36;
+  --md-sys-color-surface-slate-rgb: 16, 18, 46;
+  --md-sys-color-violet-rgb: 76, 29, 149;
+  --md-sys-color-teal-rgb: 15, 118, 110;
+  --md-sys-status-success-rgb: 34, 197, 94;
+  --md-sys-status-success-surface-rgb: 22, 70, 44;
+  --md-sys-status-error-strong-rgb: 239, 68, 68;
+  --md-sys-status-error-surface-rgb: 70, 24, 28;
+
+  /* System colour tokens */
+  --md-sys-color-primary: var(--md-ref-palette-primary40);
+  --md-sys-color-on-primary: #f4f6ff;
+  --md-sys-color-primary-container: var(--md-ref-palette-primary70);
+  --md-sys-color-on-primary-container: #090915;
+  --md-sys-color-secondary: var(--md-ref-palette-secondary40);
+  --md-sys-color-on-secondary: #001f29;
+  --md-sys-color-tertiary: var(--md-ref-palette-tertiary40);
+  --md-sys-color-on-tertiary: #2b1000;
+  --md-sys-color-error: var(--md-ref-palette-error40);
+  --md-sys-color-on-error: #2b0a10;
+  --md-sys-color-background: var(--md-ref-palette-neutral10);
+  --md-sys-color-on-background: rgba(var(--md-sys-color-on-background-rgb), 0.95);
+  --md-sys-color-surface: rgba(var(--md-sys-color-surface-rgb), 0.65);
+  --md-sys-color-surface-strong: rgba(var(--md-sys-color-surface-variant-rgb), 0.85);
+  --md-sys-color-surface-overlay: rgba(var(--md-sys-color-overlay-rgb), 0.75);
+  --md-sys-color-on-surface: rgba(var(--md-sys-color-on-surface-rgb), 0.9);
+  --md-sys-color-on-surface-muted: rgba(var(--md-sys-color-on-surface-rgb), 0.6);
+  --md-sys-color-outline: rgba(var(--md-sys-color-outline-rgb), 0.45);
+  --md-sys-color-outline-strong: rgba(var(--md-sys-color-outline-rgb), 0.85);
+  --md-sys-color-tooltip: rgba(var(--md-sys-color-tooltip-rgb), 0.92);
+  --md-sys-color-highlight: rgba(var(--md-sys-color-highlight-rgb), 0.94);
+
+  /* Legacy aliases kept for component compatibility */
+  --md-primary: var(--md-sys-color-primary);
+  --md-primary-variant: var(--md-ref-palette-primary60);
+  --md-accent: var(--md-sys-color-secondary);
+  --md-background: var(--md-sys-color-background);
+  --md-surface: var(--md-sys-color-surface);
+  --md-surface-strong: var(--md-sys-color-surface-strong);
+  --md-error: var(--md-sys-color-error);
+  --md-on-primary: var(--md-sys-color-on-primary-container);
+  --md-on-background: var(--md-sys-color-on-background);
+  --md-on-surface: var(--md-sys-color-on-surface);
+  --shadow-color: rgba(var(--md-sys-color-shadow-rgb), 0.75);
+  --glass-border: rgba(var(--md-sys-color-glass-rgb), 0.12);
+  --glass-highlight: rgba(var(--md-sys-color-glass-rgb), 0.06);
+
+  /* Layer palette now derived from the Material tokens */
+  --layer-color-a: var(--md-ref-palette-primary40);
+  --layer-color-b: var(--md-ref-palette-primary60);
+  --layer-color-c: var(--md-ref-palette-primary70);
+  --layer-color-d: rgb(var(--md-sys-color-secondary-alt-rgb));
+  --layer-host-color: var(--md-ref-palette-tertiary40);
+}

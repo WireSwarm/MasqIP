@@ -94,19 +94,27 @@ function Ipv4InsightSummary({ analyses }) {
           return null; // Only show summary when there are at least two valid networks
         }
       
-        return (
-          <div className="ipv4-insight-summary" id="ipv4-insight-summary">
-            <h3 className="summary-title" id="ipv4-insight-summary-title">Overall Network Insights</h3>
-            <div className="summary-grid" id="ipv4-insight-summary-grid">
-              <p id="total-networks-overlap">Total overlapping networks: <strong>{totalOverlappingNetworks.toLocaleString()}</strong></p>
-              <p id="total-hosts-overlap">Total overlapping hosts: <strong>{totalOverlappingHosts.toLocaleString()}</strong></p>
-              <p id="total-networks-size">Total size of all networks (addresses): <strong>{totalSizeOfAllNetworks.toLocaleString()}</strong></p>
-              <p id="total-unique-hosts-across-networks">Total Unique Hosts Across Networks: <strong>{totalUniqueHostsAcrossNetworks.toLocaleString()}</strong></p>
-              <p id="unmentioned-networks-count">Unmentioned networks count: <strong>{unmentionedNetworksCount.toLocaleString()}</strong></p>
-              <p id="unmentioned-hosts-count">Unmentioned hosts count: <strong>{unmentionedHostsCount.toLocaleString()}</strong></p>
+          return (
+            <div className="ipv4-insight-summary" id="ipv4-insight-summary">
+              <h3 className="summary-title" id="ipv4-insight-summary-title">Overall Network Insights</h3>
+              <div className="summary-sections" id="ipv4-insight-summary-sections">
+                <div className="summary-section" id="summary-section-total">
+                  <h4 className="section-title" id="section-title-total">Total</h4>
+                  <p id="total-networks-size">Total size of all networks (addresses): <strong>{totalSizeOfAllNetworks.toLocaleString()}</strong></p>
+                  <p id="total-unique-hosts-across-networks">Total Unique Hosts Across Networks: <strong>{totalUniqueHostsAcrossNetworks.toLocaleString()}</strong></p>
+                </div>
+                <div className="summary-section" id="summary-section-overlap">
+                  <h4 className="section-title" id="section-title-overlap">Overlap</h4>
+                  <p id="total-networks-overlap">Total overlapping networks: <strong>{totalOverlappingNetworks.toLocaleString()}</strong></p>
+                  <p id="total-hosts-overlap">Total overlapping hosts: <strong>{totalOverlappingHosts.toLocaleString()}</strong></p>
+                </div>
+                <div className="summary-section" id="summary-section-separated">
+                  <h4 className="section-title" id="section-title-separated">Separated</h4>
+                  <p id="unmentioned-networks-count">Unmentioned networks count: <strong>{unmentionedNetworksCount.toLocaleString()}</strong></p>
+                  <p id="unmentioned-hosts-count">Unmentioned hosts count: <strong>{unmentionedHostsCount.toLocaleString()}</strong></p>
+                </div>
+              </div>
             </div>
-          </div>
-        );
-      }
+          );      }
       
       export default Ipv4InsightSummary;

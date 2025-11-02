@@ -1,26 +1,58 @@
 /* Design agent: Styles for the IPv4 Insight Summary panel. */
 .ipv4-insight-summary {
-  background-color: var(--surface-color);
-  border-radius: var(--border-radius);
+  background-color: rgba(var(--surface-color-rgb), 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--layer-color-b);
+  border-radius: var(--border-radius-large);
   padding: var(--spacing-large);
-  margin-top: var(--spacing-large);
-  box-shadow: var(--shadow-elevation-2);
+  margin-top: var(--spacing-xl);
+  box-shadow: var(--shadow-elevation-3);
+  transition: all 0.3s ease-in-out;
 }
 
 .summary-title {
   color: var(--text-color-primary);
   font-size: var(--font-size-h3);
+  margin-bottom: var(--spacing-large);
+  text-align: center;
+  font-weight: 600;
+}
+
+.summary-sections {
+  display: flex;
+  gap: var(--spacing-large);
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.summary-section {
+  flex: 1;
+  min-width: 220px;
+  background-color: var(--surface-color);
+  padding: var(--spacing-medium);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--layer-color-c);
+  box-shadow: var(--shadow-elevation-1);
+}
+
+.section-title {
+  font-size: var(--font-size-h4);
+  color: var(--text-color-primary);
   margin-bottom: var(--spacing-medium);
+  padding-bottom: var(--spacing-small);
+  border-bottom: 1px solid var(--layer-color-b);
+  font-weight: 500;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--spacing-medium);
-}
-
-.summary-grid p {
+.summary-section p {
   color: var(--text-color-secondary);
   font-size: var(--font-size-body);
-  line-height: 1.5;
+  line-height: 1.6;
+  margin-bottom: var(--spacing-small);
+}
+
+.summary-section p strong {
+  color: var(--text-color-primary);
+  font-weight: 600;
+  margin-left: var(--spacing-small);
 }

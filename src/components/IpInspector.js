@@ -351,9 +351,8 @@ const buildInsightAnalysis = (rawValue) => {
 };
 
 // Design agent: Renders an IPv4 insight summary card directly beneath its entry field.
-// Developer agent: Encapsulates tooltip and collapse behaviour per entry to avoid shared side effects.
-function InspectorCard({ analysis, entryIndex, canCollapse }) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+// Developer agent: Encapsulates tooltip interactions while delegating collapse state to the parent list.
+function InspectorCard({ analysis, entryIndex, canCollapse, isCollapsed, onToggle }) {
   const [isProgressHovered, setIsProgressHovered] = useState(false);
   // Design agent: Stores live tooltip metadata for the progress bar.
   const [tooltipState, setTooltipState] = useState({
@@ -369,20 +368,6 @@ function InspectorCard({ analysis, entryIndex, canCollapse }) {
   // Design agent: Guarantees unique DOM ids for repeated insight sections.
   // Developer agent: Keeps id construction declarative for easier maintenance.
   const buildId = (suffix) => `ipv4-insight-entry-${entryIndex}-${suffix}`;
-
-  // Design agent: Allows the insight card to collapse or expand on demand.
-  // Developer agent: Keeps the collapse state scoped to this single insight card.
-  const toggleCardCollapse = () => {
-    setIsCollapsed((previous) => !previous);
-  };
-
-  // Design agent: Prevents collapsed cards when the collapse affordance should be hidden.
-  // Developer agent: Resets the collapsed state whenever prerequisites are no longer satisfied.
-  useEffect(() => {
-    if (!canCollapse || !analysis.parsed) {
-      setIsCollapsed(false);
-    }
-  }, [analysis.parsed, canCollapse]);
 
   // Design agent: Shows tooltips when the progress bar is hovered.
   const handleProgressEnter = () => {
@@ -466,7 +451,7 @@ function InspectorCard({ analysis, entryIndex, canCollapse }) {
             type="button"
             className="insight-card-toggle"
             id={buildId('card-toggle')}
-            onClick={toggleCardCollapse}
+            onClick={onToggle}
             aria-expanded={!isCollapsed}
           >
             {isCollapsed ? 'Expand' : 'Collapse'}
@@ -689,6 +674,12 @@ function InspectorCard({ analysis, entryIndex, canCollapse }) {
 function IpInspector() {
   const [entries, setEntries] = useState(['']);
   const inputRefs = useRef([]);
+  // Design agent: Tracks collapsed panels so keyboard automation can tuck away previous insights.
+  // Developer agent: Stores indices in an array to preserve predictable order when expanding/collapsing.
+  const [collapsedEntries, setCollapsedEntries] = useState([]);
+  // Design agent: Memorises which input currently holds focus for automatic collapse.
+  // Developer agent: Keeps the index in state so effects can react consistently to focus shifts.
+  const [activeEntryIndex, setActiveEntryIndex] = useState(0);
 
   // Design agent: Compute live insight data for every entry while caching between renders.
   // Developer agent: Keeps expensive IPv4 math within memoisation bounds for performance.
@@ -715,6 +706,57 @@ function IpInspector() {
   // Developer agent: Shares the flag with each entry to keep render conditions simple.
   const isCollapseEnabled = validEntryCount >= 2;
 
+  // Design agent: Collapses a specific insight card while keeping the state immutable.
+  // Developer agent: Avoids duplicate entries when collapsing the same index repeatedly.
+  const collapseEntry = (index) => {
+    if (index < 0) {
+      return;
+    }
+    setCollapsedEntries((previous) => {
+      if (previous.includes(index)) {
+        return previous;
+      }
+      return [...previous, index];
+    });
+  };
+
+  // Design agent: Allows manual toggling from the insight card header button.
+  // Developer agent: Switches between collapsed and expanded states in a single handler.
+  const toggleEntryCollapse = (index) => {
+    setCollapsedEntries((previous) => {
+      return previous.includes(index)
+        ? previous.filter((item) => item !== index)
+        : [...previous, index];
+    });
+  };
+
+  // Design agent: Automatically collapses the previous panel when focus advances to the next input.
+  // Developer agent: Reacts to focus changes so both keyboard and pointer navigation behave identically.
+  useEffect(() => {
+    if (!isCollapseEnabled || activeEntryIndex <= 0) {
+      return;
+    }
+    const previousIndex = activeEntryIndex - 1;
+    const previousAnalysis = analyses[previousIndex];
+    if (!previousAnalysis || !previousAnalysis.parsed) {
+      return;
+    }
+    collapseEntry(previousIndex);
+  }, [activeEntryIndex, analyses, isCollapseEnabled]);
+
+  // Design agent: Clears collapsed state when collapse is disabled or insights disappear.
+  // Developer agent: Keeps the array aligned with rendered cards to avoid orphaned indices.
+  useEffect(() => {
+    if (!isCollapseEnabled) {
+      setCollapsedEntries([]);
+      return;
+    }
+    setCollapsedEntries((previous) => {
+      const filtered = previous.filter((index) => analyses[index]?.parsed);
+      return filtered.length === previous.length ? previous : filtered;
+    });
+  }, [analyses, isCollapseEnabled]);
+
   // Design agent: Moves the caret to a specific IPv4 field after auto-expansion.
   // Developer agent: Re-attempts focus until the next field exists to keep keyboard flow snappy.
   const focusEntryField = (index) => {
@@ -729,6 +771,7 @@ function IpInspector() {
         const length = element.value.length;
         element.focus();
         element.setSelectionRange(length, length);
+        setActiveEntryIndex(index);
         return;
       }
       if (attempt < 5) {
@@ -807,12 +850,20 @@ function IpInspector() {
                   handleEntryChange(index, event.target.value, event.target.selectionStart)
                 }
                 onKeyDown={(event) => handleEntryKeyDown(event, index)}
+                onFocus={() => setActiveEntryIndex(index)}
               />
             </label>
             <InspectorCard
               analysis={analyses[index]}
               entryIndex={index}
               canCollapse={isCollapseEnabled}
+              isCollapsed={collapsedEntries.includes(index)}
+              onToggle={() => {
+                if (!isCollapseEnabled) {
+                  return;
+                }
+                toggleEntryCollapse(index);
+              }}
             />
           </div>
         ))}

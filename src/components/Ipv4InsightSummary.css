@@ -1,0 +1,26 @@
+/* Design agent: Styles for the IPv4 Insight Summary panel. */
+.ipv4-insight-summary {
+  background-color: var(--surface-color);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-large);
+  margin-top: var(--spacing-large);
+  box-shadow: var(--shadow-elevation-2);
+}
+
+.summary-title {
+  color: var(--text-color-primary);
+  font-size: var(--font-size-h3);
+  margin-bottom: var(--spacing-medium);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-medium);
+}
+
+.summary-grid p {
+  color: var(--text-color-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+}

@@ -13,6 +13,7 @@ import {
 } from '../utils/ipMath';
 import { normaliseWithTail } from '../utils/listNormalization';
 import { createBitGradientStyle } from '../utils/bitStyling';
+import Ipv4InsightSummary from './Ipv4InsightSummary';
 
 // Design agent: Defines the chromatic palette used for network and host highlights.
 const INSPECTOR_COLORS = {
@@ -822,6 +823,9 @@ function IpInspector() {
           </div>
         ))}
       </div>
+      {isCollapseEnabled && validEntryCount >= 2 && (
+        <Ipv4InsightSummary analyses={analyses} />
+      )}
     </div>
   );
 }

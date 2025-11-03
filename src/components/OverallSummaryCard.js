@@ -87,6 +87,10 @@ function OverallSummaryCard({ analyses }) {
     };
   }, [validAnalyses]);
 
+  // Design agent: Prepares the aggregate route text so the pill badge stays concise and legible.
+  // Developer agent: Centralises the availability fallback to keep JSX conditionals minimal.
+  const routeSummaryDisplay = routeSummary.available ? routeSummary.summary : 'Not Available';
+
   if (validAnalyses.length < 2) {
     return null;
   }
@@ -106,24 +110,68 @@ function OverallSummaryCard({ analyses }) {
       <div className="insight-card-body" id="overall-summary-body">
         <div className="summary-section" id="summary-section-route">
           <h4 className="section-title" id="section-title-route">Route Summary</h4>
-          <p id="route-summary-value">
-            {routeSummary.available ? <strong>{routeSummary.summary}</strong> : 'Not Available'}
-          </p>
+          {/* Design agent: Highlights the combined route using the emphasis variant for quick scanning. */}
+          {/* Developer agent: Reuses summary-stat styles to keep structure consistent across sections. */}
+          <div className="summary-stat summary-stat-emphasis" id="summary-stat-route">
+            <span className="summary-stat-label" id="summary-stat-label-route">Aggregate CIDR</span>
+            <span
+              className={routeSummary.available ? 'summary-stat-value' : 'summary-stat-value summary-stat-value-unavailable'}
+              id="summary-stat-value-route"
+            >
+              {routeSummaryDisplay}
+            </span>
+          </div>
         </div>
         <div className="summary-section" id="summary-section-total">
           <h4 className="section-title" id="section-title-total">Total</h4>
-          <p id="total-networks-size">Size (addresses): <strong>{totalSizeOfAllNetworks.toLocaleString()}</strong></p>
-          <p id="total-unique-hosts-across-networks">Unique Hosts: <strong>{totalUniqueHostsAcrossNetworks.toLocaleString()}</strong></p>
+          {/* Design agent: Presents aggregate counts with stacked labels for clarity. */}
+          {/* Developer agent: Keeps values pre-formatted to simplify future localisation. */}
+          <div className="summary-stat" id="summary-stat-total-size">
+            <span className="summary-stat-label" id="summary-stat-label-total-size">Size (addresses)</span>
+            <span className="summary-stat-value" id="summary-stat-value-total-size">
+              {totalSizeOfAllNetworks.toLocaleString()}
+            </span>
+          </div>
+          <div className="summary-stat" id="summary-stat-total-unique-hosts">
+            <span className="summary-stat-label" id="summary-stat-label-total-unique-hosts">Unique Hosts</span>
+            <span className="summary-stat-value" id="summary-stat-value-total-unique-hosts">
+              {totalUniqueHostsAcrossNetworks.toLocaleString()}
+            </span>
+          </div>
         </div>
         <div className="summary-section" id="summary-section-overlap">
           <h4 className="section-title" id="section-title-overlap">Overlap</h4>
-          <p id="total-networks-overlap">Overlapping Networks: <strong>{totalOverlappingNetworks.toLocaleString()}</strong></p>
-          <p id="total-hosts-overlap">Overlapping Hosts: <strong>{totalOverlappingHosts.toLocaleString()}</strong></p>
+          {/* Design agent: Groups overlap metrics so users can compare counts effortlessly. */}
+          {/* Developer agent: Avoids repeated inline styles by leaning on shared summary-stat classes. */}
+          <div className="summary-stat" id="summary-stat-overlap-networks">
+            <span className="summary-stat-label" id="summary-stat-label-overlap-networks">Overlapping Networks</span>
+            <span className="summary-stat-value" id="summary-stat-value-overlap-networks">
+              {totalOverlappingNetworks.toLocaleString()}
+            </span>
+          </div>
+          <div className="summary-stat" id="summary-stat-overlap-hosts">
+            <span className="summary-stat-label" id="summary-stat-label-overlap-hosts">Overlapping Hosts</span>
+            <span className="summary-stat-value" id="summary-stat-value-overlap-hosts">
+              {totalOverlappingHosts.toLocaleString()}
+            </span>
+          </div>
         </div>
         <div className="summary-section" id="summary-section-separated">
           <h4 className="section-title" id="section-title-separated">Separated</h4>
-          <p id="unmentioned-networks-count">Unmentioned Networks: <strong>{unmentionedNetworksCount.toLocaleString()}</strong></p>
-          <p id="unmentioned-hosts-count">Unmentioned Hosts: <strong>{unmentionedHostsCount.toLocaleString()}</strong></p>
+          {/* Design agent: Calls out gaps with the same metric language to reinforce pattern recognition. */}
+          {/* Developer agent: Leaves room for additional statistics without revisiting layout logic. */}
+          <div className="summary-stat" id="summary-stat-separated-networks">
+            <span className="summary-stat-label" id="summary-stat-label-separated-networks">Unmentioned Networks</span>
+            <span className="summary-stat-value" id="summary-stat-value-separated-networks">
+              {unmentionedNetworksCount.toLocaleString()}
+            </span>
+          </div>
+          <div className="summary-stat" id="summary-stat-separated-hosts">
+            <span className="summary-stat-label" id="summary-stat-label-separated-hosts">Unmentioned Hosts</span>
+            <span className="summary-stat-value" id="summary-stat-value-separated-hosts">
+              {unmentionedHostsCount.toLocaleString()}
+            </span>
+          </div>
         </div>
       </div>
     </div>

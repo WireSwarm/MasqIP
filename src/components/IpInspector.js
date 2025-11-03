@@ -167,6 +167,7 @@ const buildInsightAnalysis = (rawValue) => {
     return {
       parsed: null,
       prompt: 'Enter an IPv4 address with CIDR to begin.',
+      isHostOnly: false,
     };
   }
 
@@ -177,6 +178,7 @@ const buildInsightAnalysis = (rawValue) => {
       return {
         parsed: null,
         error: 'Invalid IPv4 or CIDR value. Try 192.168.1.10/24.',
+        isHostOnly: false,
       };
     }
     parsed = {
@@ -193,9 +195,11 @@ const buildInsightAnalysis = (rawValue) => {
     return {
       parsed: null,
       error: 'The IPv4 portion is not valid.',
+      isHostOnly: false,
     };
   }
 
+  const isHostOnly = parsed.prefix === 32;
   const totalAddresses = getTotalAddressCount(parsed.prefix);
   const metadata = getAddressMetadata(ipInt);
   const mask = formatMask(parsed.mask);
@@ -298,6 +302,7 @@ const buildInsightAnalysis = (rawValue) => {
     colors: INSPECTOR_COLORS,
     currentOctet: parsed.ip.split('.').pop(),
     nextNetworks: buildNextNetworks(parsed),
+    isHostOnly,
   };
 };
 
@@ -416,7 +421,31 @@ function InspectorCard({ analysis, entryIndex, canCollapse, isCollapsed, onToggl
             {analysis.prompt}
           </p>
         )}
-        {analysis.parsed && (
+        {/* Design agent: Limits host-only insights to the essentials for single-address checks. */}
+        {/* Developer agent: Avoids rendering progress metrics when the network range collapses to one host. */}
+        {analysis.parsed && analysis.isHostOnly && (
+          <div className="insight-grid insight-grid--compact" id={buildId('host-only-grid')}>
+            <div id={buildId('type-summary')}>
+              <p className="insight-title" id={buildId('type-title')}>
+                Type
+              </p>
+              <p id={buildId('type-value')}>{analysis.type}</p>
+              {analysis.addressMetadata?.category === 'multicast' &&
+                analysis.addressMetadata.service && (
+                  <p className="insight-meta" id={buildId('multicast-service')}>
+                    Service: {analysis.addressMetadata.service}
+                  </p>
+                )}
+            </div>
+            <div id={buildId('class-summary')}>
+              <p className="insight-title" id={buildId('class-title')}>
+                Class
+              </p>
+              <p id={buildId('class-value')}>{analysis.ipClass}</p>
+            </div>
+          </div>
+        )}
+        {analysis.parsed && !analysis.isHostOnly && (
           <>
             <div className="cidr-display" aria-label="Inspected address" id={buildId('cidr-display')}>
               <span className="cidr-prefix" id={buildId('cidr-prefix')}>
@@ -636,6 +665,16 @@ function IpInspector() {
   // Developer agent: Keeps the index in state so effects can react consistently to focus shifts.
   const [activeEntryIndex, setActiveEntryIndex] = useState(0);
 
+  // Design agent: Coordinates focus and scroll adjustments so transitions feel fluid.
+  // Developer agent: Prefers requestAnimationFrame to prevent synchronous layout reads.
+  const scheduleNextFrame = (callback) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(callback);
+      return;
+    }
+    setTimeout(callback, 0);
+  };
+
   // Design agent: Compute live insight data for every entry while caching between renders.
   // Developer agent: Keeps expensive IPv4 math within memoisation bounds for performance.
   const analyses = useMemo(() => {
@@ -715,22 +754,21 @@ function IpInspector() {
   // Design agent: Moves the caret to a specific IPv4 field after auto-expansion.
   // Developer agent: Re-attempts focus until the next field exists to keep keyboard flow snappy.
   const focusEntryField = (index) => {
-    const schedule =
-      typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
-        ? window.requestAnimationFrame.bind(window)
-        : (callback) => setTimeout(callback, 0);
-
     const tryFocus = (attempt = 0) => {
       const element = inputRefs.current[index];
       if (element) {
         const length = element.value.length;
-        element.focus();
+        try {
+          element.focus({ preventScroll: true });
+        } catch (error) {
+          element.focus();
+        }
         element.setSelectionRange(length, length);
         setActiveEntryIndex(index);
         return;
       }
       if (attempt < 5) {
-        schedule(() => tryFocus(attempt + 1));
+        scheduleNextFrame(() => tryFocus(attempt + 1));
       }
     };
 
@@ -740,6 +778,7 @@ function IpInspector() {
   // Design agent: Propagates edits through the inspector entries while keeping them normalised.
   // Developer agent: Updates the entry list and advances focus when a valid CIDR is completed.
   const handleEntryChange = (index, value, caretPosition) => {
+    const wasEmpty = (entries[index] ?? '').trim() === '';
     setEntries((previous) => {
       const next = [...previous];
       next[index] = value;
@@ -748,6 +787,20 @@ function IpInspector() {
 
     const caretAtEnd = typeof caretPosition === 'number' && caretPosition === value.length;
     const trimmed = value.trim();
+    // Design agent: Scrolls the active input into view once typing begins for spatial awareness.
+    // Developer agent: Uses the shared scheduler so the scroll runs after React applies updates.
+    if (wasEmpty && trimmed !== '') {
+      const element = inputRefs.current[index];
+      if (element && typeof element.scrollIntoView === 'function') {
+        scheduleNextFrame(() => {
+          element.scrollIntoView({
+            block: 'center',
+            inline: 'nearest',
+            behavior: 'smooth',
+          });
+        });
+      }
+    }
     const parsed = parseCidr(trimmed);
     if (caretAtEnd && parsed) {
       const slashIndex = trimmed.indexOf('/');
@@ -781,48 +834,57 @@ function IpInspector() {
         <span className="field-group-label" id="ipv4-insight-field-label">
           IPv4 / CIDR entries
         </span>
-        {entries.map((value, index) => (
-          <div
-            className="insight-entry"
-            id={`ipv4-insight-entry-${index}`}
-            key={`ipv4-insight-entry-${index}`}
-          >
-            <label
-              className="field"
-              htmlFor={`ipv4-insight-input-${index}`}
-              id={`ipv4-insight-label-${index}`}
+        {entries.map((value, index) => {
+          const analysis = analyses[index];
+          // Design agent: Keeps the canvas clean until the user supplies an address.
+          // Developer agent: Skips rendering cards when inputs are empty to save work.
+          const hasInput = value.trim() !== '';
+
+          return (
+            <div
+              className="insight-entry"
+              id={`ipv4-insight-entry-${index}`}
+              key={`ipv4-insight-entry-${index}`}
             >
-              <span id={`ipv4-insight-input-label-${index}`}>IPv4 / CIDR {index + 1}</span>
-              <input
-                ref={(element) => {
-                  inputRefs.current[index] = element;
-                }}
-                id={`ipv4-insight-input-${index}`}
-                value={value}
-                placeholder="e.g. 10.0.0.125/24"
-                className="field-input"
-                onChange={(event) =>
-                  handleEntryChange(index, event.target.value, event.target.selectionStart)
-                }
-                onKeyDown={(event) => handleEntryKeyDown(event, index)}
-                onFocus={() => setActiveEntryIndex(index)}
-                autoComplete="off"
-              />
-            </label>
-            <InspectorCard
-              analysis={analyses[index]}
-              entryIndex={index}
-              canCollapse={isCollapseEnabled}
-              isCollapsed={collapsedEntries.includes(index)}
-              onToggle={() => {
-                if (!isCollapseEnabled) {
-                  return;
-                }
-                toggleEntryCollapse(index);
-              }}
-            />
-          </div>
-        ))}
+              <label
+                className="field"
+                htmlFor={`ipv4-insight-input-${index}`}
+                id={`ipv4-insight-label-${index}`}
+              >
+                <span id={`ipv4-insight-input-label-${index}`}>IPv4 / CIDR {index + 1}</span>
+                <input
+                  ref={(element) => {
+                    inputRefs.current[index] = element;
+                  }}
+                  id={`ipv4-insight-input-${index}`}
+                  value={value}
+                  placeholder="e.g. 10.0.0.125/24"
+                  className="field-input"
+                  onChange={(event) =>
+                    handleEntryChange(index, event.target.value, event.target.selectionStart)
+                  }
+                  onKeyDown={(event) => handleEntryKeyDown(event, index)}
+                  onFocus={() => setActiveEntryIndex(index)}
+                  autoComplete="off"
+                />
+              </label>
+              {hasInput && (
+                <InspectorCard
+                  analysis={analysis}
+                  entryIndex={index}
+                  canCollapse={isCollapseEnabled}
+                  isCollapsed={collapsedEntries.includes(index)}
+                  onToggle={() => {
+                    if (!isCollapseEnabled) {
+                      return;
+                    }
+                    toggleEntryCollapse(index);
+                  }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
       {validEntryCount >= 2 && (
         <OverallSummaryCard analyses={analyses} />

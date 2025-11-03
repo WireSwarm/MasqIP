@@ -2,16 +2,29 @@
 /* Developer agent: Applies shared elevation tokens to keep styling consistent with the rest of the suite. */
 .overall-summary-card {
   margin-top: var(--spacing-xl);
-  background: linear-gradient(
-    145deg,
-    rgba(var(--surface-color-rgb), 0.38) 0%,
-    rgba(var(--surface-color-rgb), 0.24) 52%,
-    rgba(var(--md-sys-color-overlay-mid-rgb), 0.18) 100%
-  );
-  backdrop-filter: blur(14px);
+  /* Design agent: Replaces the surface wash with layered nebula-style gradients for a calmer violet tone. */
+  /* Developer agent: Builds the palette from existing tokens so the card stays in sync with theme changes. */
+  background:
+    radial-gradient(
+      circle at 18% 18%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.24) 0%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0) 58%
+    ),
+    radial-gradient(
+      circle at 82% 12%,
+      rgba(var(--md-sys-color-secondary-alt-rgb), 0.18) 0%,
+      rgba(var(--md-sys-color-secondary-alt-rgb), 0) 52%
+    ),
+    linear-gradient(
+      135deg,
+      rgba(var(--md-sys-color-surface-night-rgb), 0.62) 0%,
+      rgba(var(--md-sys-color-surface-rich-rgb), 0.48) 45%,
+      rgba(var(--md-sys-color-surface-deep-rgb), 0.58) 100%
+    );
+  backdrop-filter: blur(18px);
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  box-shadow: 0 24px 46px -28px var(--shadow-color);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 24px 46px -28px rgba(var(--md-sys-color-shadow-deep-rgb), 0.85);
   /* Design agent: Tightens the container padding so the summary reads lighter at default zoom. */
   /* Developer agent: Replaces the exaggerated bottom padding with a balanced clamp for consistent spacing. */
   padding: clamp(0.85rem, 2.4vw, 1.75rem);
@@ -30,14 +43,21 @@
 .overall-summary-card::before {
   content: '';
   position: absolute;
-  inset: -40%;
-  background: radial-gradient(
-    circle at top left,
-    rgba(var(--md-sys-color-primary-rgb), 0.28) 0%,
-    rgba(var(--md-sys-color-secondary-rgb), 0.18) 28%,
-    transparent 65%
-  );
-  opacity: 0.4;
+  inset: -35%;
+  background:
+    radial-gradient(
+      circle at 25% 25%,
+      rgba(var(--md-sys-color-primary-rgb), 0.28) 0%,
+      rgba(var(--md-sys-color-primary-rgb), 0.12) 34%,
+      transparent 68%
+    ),
+    radial-gradient(
+      circle at 78% 22%,
+      rgba(var(--md-sys-color-secondary-rgb), 0.22) 0%,
+      rgba(var(--md-sys-color-secondary-rgb), 0.08) 40%,
+      transparent 72%
+    );
+  opacity: 0.48;
   pointer-events: none;
   z-index: 0;
 }
@@ -105,21 +125,21 @@
   background:
     radial-gradient(
       120% 140% at 18% 12%,
-      rgba(var(--md-sys-color-primary-rgb), 0.18) 0%,
-      rgba(var(--md-sys-color-primary-alt-rgb), 0.12) 28%,
+      rgba(var(--md-sys-color-primary-rgb), 0.16) 0%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.1) 28%,
       transparent 68%
     ),
     radial-gradient(
       120% 160% at 78% 82%,
-      rgba(var(--md-sys-color-primary-shadow-rgb), 0.16) 0%,
-      rgba(var(--md-sys-color-surface-midnight-rgb), 0.7) 62%,
-      rgba(var(--md-sys-color-surface-midnight-rgb), 0.82) 100%
+      rgba(var(--md-sys-color-primary-shadow-rgb), 0.12) 0%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.58) 62%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.72) 100%
     ),
     linear-gradient(
       145deg,
-      rgba(var(--md-sys-color-surface-rich-rgb), 0.58) 0%,
-      rgba(var(--md-sys-color-primary-rgb), 0.16) 56%,
-      rgba(var(--md-sys-color-surface-midnight-rgb), 0.68) 100%
+      rgba(var(--md-sys-color-surface-rich-rgb), 0.52) 0%,
+      rgba(var(--md-sys-color-primary-rgb), 0.14) 56%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.6) 100%
     );
   border: 1px solid rgba(var(--md-sys-color-primary-shadow-rgb), 0.38);
   box-shadow:
@@ -141,8 +161,8 @@
   background:
     conic-gradient(
       from 180deg at 30% 30%,
-      rgba(var(--md-sys-color-primary-alt-rgb), 0.16) 0deg,
-      rgba(var(--md-sys-color-primary-rgb), 0.12) 110deg,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.14) 0deg,
+      rgba(var(--md-sys-color-primary-rgb), 0.1) 110deg,
       rgba(255, 255, 255, 0) 220deg
     );
   opacity: 0;

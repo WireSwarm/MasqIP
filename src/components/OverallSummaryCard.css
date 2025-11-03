@@ -7,21 +7,21 @@
   background:
     radial-gradient(
       circle at 18% 18%,
-      rgba(var(--md-sys-color-primary-alt-rgb), 0.24) 0%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.02) 0%,
       rgba(var(--md-sys-color-primary-alt-rgb), 0) 58%
     ),
     radial-gradient(
       circle at 82% 12%,
-      rgba(var(--md-sys-color-secondary-alt-rgb), 0.18) 0%,
+      rgba(var(--md-sys-color-secondary-alt-rgb), 0.015) 0%,
       rgba(var(--md-sys-color-secondary-alt-rgb), 0) 52%
     ),
     linear-gradient(
       135deg,
-      rgba(var(--md-sys-color-surface-night-rgb), 0.62) 0%,
-      rgba(var(--md-sys-color-surface-rich-rgb), 0.48) 45%,
-      rgba(var(--md-sys-color-surface-deep-rgb), 0.58) 100%
+      rgba(var(--md-sys-color-surface-night-rgb), 0.08) 0%,
+      rgba(var(--md-sys-color-surface-rich-rgb), 0.05) 45%,
+      rgba(var(--md-sys-color-surface-deep-rgb), 0.08) 100%
     );
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(16px);
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 24px 46px -28px rgba(var(--md-sys-color-shadow-deep-rgb), 0.85);
@@ -47,17 +47,17 @@
   background:
     radial-gradient(
       circle at 25% 25%,
-      rgba(var(--md-sys-color-primary-rgb), 0.28) 0%,
-      rgba(var(--md-sys-color-primary-rgb), 0.12) 34%,
+      rgba(var(--md-sys-color-primary-rgb), 0.035) 0%,
+      rgba(var(--md-sys-color-primary-rgb), 0.015) 34%,
       transparent 68%
     ),
     radial-gradient(
       circle at 78% 22%,
-      rgba(var(--md-sys-color-secondary-rgb), 0.22) 0%,
-      rgba(var(--md-sys-color-secondary-rgb), 0.08) 40%,
+      rgba(var(--md-sys-color-secondary-rgb), 0.03) 0%,
+      rgba(var(--md-sys-color-secondary-rgb), 0.012) 40%,
       transparent 72%
     );
-  opacity: 0.48;
+  opacity: 0.16;
   pointer-events: none;
   z-index: 0;
 }
@@ -125,21 +125,21 @@
   background:
     radial-gradient(
       120% 140% at 18% 12%,
-      rgba(var(--md-sys-color-primary-rgb), 0.16) 0%,
-      rgba(var(--md-sys-color-primary-alt-rgb), 0.1) 28%,
+      rgba(var(--md-sys-color-primary-rgb), 0.012) 0%,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.008) 28%,
       transparent 68%
     ),
     radial-gradient(
       120% 160% at 78% 82%,
-      rgba(var(--md-sys-color-primary-shadow-rgb), 0.12) 0%,
-      rgba(var(--md-sys-color-surface-midnight-rgb), 0.58) 62%,
-      rgba(var(--md-sys-color-surface-midnight-rgb), 0.72) 100%
+      rgba(var(--md-sys-color-primary-shadow-rgb), 0.01) 0%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.06) 62%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.12) 100%
     ),
     linear-gradient(
       145deg,
-      rgba(var(--md-sys-color-surface-rich-rgb), 0.52) 0%,
-      rgba(var(--md-sys-color-primary-rgb), 0.14) 56%,
-      rgba(var(--md-sys-color-surface-midnight-rgb), 0.6) 100%
+      rgba(var(--md-sys-color-surface-rich-rgb), 0.06) 0%,
+      rgba(var(--md-sys-color-primary-rgb), 0.015) 56%,
+      rgba(var(--md-sys-color-surface-midnight-rgb), 0.08) 100%
     );
   border: 1px solid rgba(var(--md-sys-color-primary-shadow-rgb), 0.38);
   box-shadow:
@@ -147,7 +147,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
-  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
+  transition: none;
   min-height: auto;
 }
 
@@ -161,8 +161,8 @@
   background:
     conic-gradient(
       from 180deg at 30% 30%,
-      rgba(var(--md-sys-color-primary-alt-rgb), 0.14) 0deg,
-      rgba(var(--md-sys-color-primary-rgb), 0.1) 110deg,
+      rgba(var(--md-sys-color-primary-alt-rgb), 0.015) 0deg,
+      rgba(var(--md-sys-color-primary-rgb), 0.01) 110deg,
       rgba(255, 255, 255, 0) 220deg
     );
   opacity: 0;
@@ -173,17 +173,15 @@
 /* Design agent: Slightly lifts the tile while brightening its glow to reward pointer focus. */
 /* Developer agent: Keeps the transform lightweight to avoid triggering expensive repaints. */
 .summary-section:hover {
-  transform: translateY(-6px);
+  transform: none;
   box-shadow:
-    0 26px 54px -26px rgba(var(--md-sys-color-shadow-deep-rgb), 0.68),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  border-color: rgba(var(--md-sys-color-primary-alt-rgb), 0.45);
+    0 18px 38px -28px rgba(var(--md-sys-color-shadow-deep-rgb), 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: rgba(var(--md-sys-color-primary-shadow-rgb), 0.38);
 }
 
-/* Design agent: Brightens the inner wash when users hover over each summary tile. */
-/* Developer agent: Uses opacity control so the browser can optimise compositing. */
 .summary-section:hover::before {
-  opacity: 1;
+  opacity: 0;
 }
 
 /* Design agent: Repositions section headings for a crisp divider effect. */
@@ -238,8 +236,8 @@
   color: var(--text-color-primary);
   background: linear-gradient(
     135deg,
-    rgba(var(--md-sys-color-primary-rgb), 0.2) 0%,
-    rgba(var(--md-sys-color-secondary-rgb), 0.14) 100%
+    rgba(var(--md-sys-color-primary-rgb), 0.06) 0%,
+    rgba(var(--md-sys-color-secondary-rgb), 0.04) 100%
   );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   max-width: 100%;
@@ -251,9 +249,9 @@
 /* Design agent: Applies a calmer palette when a value represents an unavailable state. */
 /* Developer agent: Keeps class-based modifiers to simplify conditional rendering from React. */
 .summary-stat-value-unavailable {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(var(--md-sys-color-on-background-rgb), 0.68);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(var(--md-sys-color-on-background-rgb), 0.52);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 /* Design agent: Slightly scales the emphasised metric to anchor attention on primary data. */

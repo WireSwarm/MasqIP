@@ -39,7 +39,11 @@ jobs:
 
             echo "--- TRY FETCH WITH TRACE ---"
             GIT_TRACE=1 GIT_CURL_VERBOSE=1 git fetch origin main
+            echo "We expect path: $path"
+            echo "Listing parent directory:"
+            ls -la /srv/customer/site || echo "/srv/customer/site NOT FOUND"
 
+            ls -la "$path" || echo "$path DOES NOT EXIST"
             echo "Updating $path for branch $branch"
             cd $path
             echo "fetch"

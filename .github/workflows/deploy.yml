@@ -22,6 +22,18 @@ jobs:
           script: |
             echo "HOME in script: $HOME"
             echo "whoami: $(whoami)"
+
+            echo "--- DEBUG CREDENTIALS ---"
+            echo "HOME = $HOME"
+            ls -la $HOME
+
+            echo "--- REMOTE ---"
+            git remote -v
+
+            echo "--- TRY FETCH WITH TRACE ---"
+            GIT_TRACE=1 GIT_CURL_VERBOSE=1 git fetch origin main
+
+
             exit
             branch="${{ github.ref_name }}"
             if [[ "$branch" == "main" ]]; then

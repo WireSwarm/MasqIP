@@ -22,9 +22,9 @@ jobs:
           script: |
             branch="${{ github.ref_name }}"
             if [[ "$branch" == "main" ]]; then
-              path="~/site/masqip.org"
+              path="/srv/customer/site/masqip.org"
             else
-              path="~/site/${branch}.masqip.org"
+              path="/srv/customer/site/${branch}.masqip.org"
             fi
 
             echo "Updating $path for branch $branch"

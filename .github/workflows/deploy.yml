@@ -27,8 +27,6 @@ jobs:
             echo "HOME = $HOME"
             ls -la $HOME
 
-
-            exit
             branch="${{ github.ref_name }}"
             if [[ "$branch" == "main" ]]; then
               path="/srv/customer/site/masqip.org"

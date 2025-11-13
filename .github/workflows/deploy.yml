@@ -27,12 +27,6 @@ jobs:
             echo "HOME = $HOME"
             ls -la $HOME
 
-            echo "--- REMOTE ---"
-            git remote -v
-
-            echo "--- TRY FETCH WITH TRACE ---"
-            GIT_TRACE=1 GIT_CURL_VERBOSE=1 git fetch origin main
-
 
             exit
             branch="${{ github.ref_name }}"
@@ -41,6 +35,12 @@ jobs:
             else
               path="/srv/customer/site/${branch}.masqip.org"
             fi
+            
+            echo "--- REMOTE ---"
+            git remote -v
+
+            echo "--- TRY FETCH WITH TRACE ---"
+            GIT_TRACE=1 GIT_CURL_VERBOSE=1 git fetch origin main
 
             echo "Updating $path for branch $branch"
             cd $path

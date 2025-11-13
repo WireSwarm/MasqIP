@@ -29,9 +29,14 @@ jobs:
 
             echo "Updating $path for branch $branch"
             cd $path
+            echo "fetch"
             git fetch origin $branch
+            echo "checkout"
             git checkout $branch
+            echo "reset"
             git reset --hard origin/$branch
+            echo "clean"
             git clean -fd
+            echo "build"
             npm run build
             

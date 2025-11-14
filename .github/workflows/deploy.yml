@@ -23,6 +23,7 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           envs: GITHUB_TOKEN
           request_pty: true     # ← IMPORTANT
+          script_stop: false
           script: |
 
             branch="${{ github.ref_name }}"

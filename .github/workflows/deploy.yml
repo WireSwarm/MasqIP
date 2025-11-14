@@ -23,8 +23,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           envs: GITHUB_TOKEN
           request_pty: true     # ← IMPORTANT
-          script_stop: false
+          
           script: |
+            trap '' HUP
 
             branch="${{ github.ref_name }}"
             if [[ "$branch" == "main" ]]; then

@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: SSH via stable client
-        uses: fifsky/ssh-action@v1.2
+        uses: fifsky/ssh-action
         with:
           host: ${{ secrets.SERVER_HOST }}
           user: ${{ secrets.SERVER_USER }}

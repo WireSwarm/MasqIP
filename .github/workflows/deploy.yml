@@ -11,21 +11,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: sec
+    permissions:
+      contents: read
 
     steps:
-      - name: Déploiement sur le VPS (via SSH)
+      - name: Déploiement sur le VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
+          envs: GITHUB_TOKEN
           script: |
-            echo "HOME in script: $HOME"
-            echo "whoami: $(whoami)"
-
-            echo "--- DEBUG CREDENTIALS ---"
-            echo "HOME = $HOME"
-            ls -la $HOME
 
             branch="${{ github.ref_name }}"
             if [[ "$branch" == "main" ]]; then
@@ -33,27 +30,17 @@ jobs:
             else
               path="/srv/customer/site/${branch}.masqip.org"
             fi
-            
-            echo "--- REMOTE ---"
-            git remote -v
 
-            echo "--- TRY FETCH WITH TRACE ---"
-            GIT_TRACE=1 GIT_CURL_VERBOSE=1 git fetch origin main
-            echo "We expect path: $path"
-            echo "Listing parent directory:"
-            ls -la /srv/customer/site || echo "/srv/customer/site NOT FOUND"
-
-            ls -la "$path" || echo "$path DOES NOT EXIST"
-            echo "Updating $path for branch $branch"
             cd $path
-            echo "fetch"
-            git fetch origin $branch
-            echo "checkout"
+
+            echo "Fetch secured"
+            git -c credential.helper= \
+                -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \
+                fetch https://github.com/WireSwarm/MasqIP.git $branch
+
             git checkout $branch
-            echo "reset"
-            git reset --hard origin/$branch
-            echo "clean"
+            git reset --hard FETCH_HEAD
             git clean -fd
-            echo "build"
+
+            npm install --production
             npm run build
-            

@@ -40,7 +40,8 @@ jobs:
             GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
             git -c credential.helper="" \
                 -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \
-                fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git $branch
+                -c http.version=HTTP/1.1 \
+                fetch --quiet https://WireSwarm@github.com/WireSwarm/MasqIP.git $branch
             echo "After fetch"
             git checkout $branch
             git reset --hard FETCH_HEAD

@@ -39,7 +39,7 @@ jobs:
             echo "Fetch secured"
             git -c credential.helper= \
                 -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \
-                fetch https://github.com/WireSwarm/MasqIP.git $branch
+                fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git $branch
             echo "After fetch"
             git checkout $branch
             git reset --hard FETCH_HEAD

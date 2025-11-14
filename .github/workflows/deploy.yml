@@ -35,10 +35,11 @@ jobs:
             fi
 
             cd $path
-
+            echo "La branche est $branch"
             echo "Fetch secured"
-            git -c credential.helper= \
-                -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \
+            GIT_TRACE=1 GIT_CURL_VERBOSE=1 \ 
+            git -c credential.helper= \ 
+                -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \ 
                 fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git $branch
             echo "After fetch"
             git checkout $branch

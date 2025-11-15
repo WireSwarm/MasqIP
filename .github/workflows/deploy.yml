@@ -20,7 +20,6 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -o StrictHostKeyChecking=no  ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<-EOF 
             touch suis.text
-            echo "etape1" \> toto.text
             set -ex
             BRANCH="${{ github.ref_name }}"
             GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
@@ -32,18 +31,18 @@ jobs:
             fi
 
             cd "$path"
-
+            touch sui2.text
             echo "--- FETCH START ---"
             git -c credential.helper="" \
                 -c http.extraHeader="Authorization: Bearer $GITHUB_TOKEN" \
                 -c http.version=HTTP/1.1 \
                 fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git $BRANCH
             echo "--- FETCH DONE ---"
-
+            touch sui3.text
             git checkout "$BRANCH"
             git reset --hard FETCH_HEAD
             git clean -fd
-
+            touch sui4.text
             npm install --production
             npm run build
           EOF

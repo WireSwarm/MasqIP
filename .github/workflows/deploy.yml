@@ -2,19 +2,11 @@ name: Deploy Node.js App
 
 on:
   push:
-    branches:
-      - main
-      - preprod
-      - develop
-
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  BRANCH: ${{ github.ref_name }}
+    branches: [ main, preprod, develop ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: sec
     permissions:
       contents: read
 
@@ -22,36 +14,40 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install -y sshpass
 
-      - name: Execute SSH script
+      - name: Create remote script
         run: |
-          sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
-            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
-            'set -ex
+          cat > deploy.sh << 'EOF'
+          set -ex
 
-            BRANCH="${{ github.ref_name }}"
-            GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          BRANCH="${{ github.ref_name }}"
+          GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
 
-            if [[ "$BRANCH" == "main" ]]; then
-              path="/srv/customer/site/masqip.org"
-            else
-              path="/srv/customer/site/${BRANCH}.masqip.org"
-            fi
+          if [[ "$BRANCH" == "main" ]]; then
+            path="/srv/customer/site/masqip.org"
+          else
+            path="/srv/customer/site/${BRANCH}.masqip.org"
+          fi
 
-            cd "$path" || { echo "ERROR : folder not found : $path"; exit 1; }
-            echo "Branche = $BRANCH"
+          cd "$path" || { echo "ERROR: folder not found: $path"; exit 1; }
 
-            echo "--- FETCH START ---"
-            GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
-            git -c credential.helper="" \
-                -c http.extraHeader="Authorization: Bearer '"$GITHUB_TOKEN"'" \
-                -c http.version=HTTP/1.1 \
-                fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git $BRANCH
-            echo "--- FETCH DONE ---"
+          echo "--- FETCH START ---"
+          git -c credential.helper="" \
+              -c http.extraHeader="Authorization: Bearer $GITHUB_TOKEN" \
+              -c http.version=HTTP/1.1 \
+              fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git $BRANCH
+          echo "--- FETCH DONE ---"
 
-            git checkout $BRANCH
-            git reset --hard FETCH_HEAD
-            git clean -fd
+          git checkout "$BRANCH"
+          git reset --hard FETCH_HEAD
+          git clean -fd
 
-            npm install --production
-            npm run build
-            '
+          npm install --production
+          npm run build
+          EOF
+
+      - name: Execute remote script via SSH
+        run: |
+          sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+              'bash -s' < deploy.sh

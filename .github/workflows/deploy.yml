@@ -17,15 +17,13 @@ jobs:
 
       - name: Execute remote script via SSH
         env:
-          toto: "toto"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -o StrictHostKeyChecking=no  ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<-EOF 
-            BRANCH="${{ github.ref_name }}"
             touch suis.text
-            touch $toto.text
             set -ex
-            GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
             touch sui1.text
             if [[ "$BRANCH" == "main" ]]; then
               path="/srv/customer/site/masqip.org"

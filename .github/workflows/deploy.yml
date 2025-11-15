@@ -6,7 +6,11 @@ on:
       - main
       - preprod
       - develop
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  BRANCH: ${{ github.ref_name }}
 
+  
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -22,24 +26,23 @@ jobs:
           user: ${{ secrets.SERVER_USER }}
           pass: ${{ secrets.SERVER_PASSWORD }}
           command:  |
-            set -e
-            branch="${{ github.ref_name }}"
-            if [[ "$branch" == "main" ]]; then
+            set -ex
+            if [[ $BRANCH == "main" ]]; then
               path="/srv/customer/site/masqip.org"
             else
-              path="/srv/customer/site/${branch}.masqip.org"
+              path="/srv/customer/site/${BRANCH}.masqip.org"
             fi
 
             cd $path
-            echo "La branche est $branch"
+            echo "La branche est ${BRANCH"
             echo "Fetch secured"
             GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
             git -c credential.helper="" \
                 -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \
                 -c http.version=HTTP/1.1 \
-                fetch --quiet https://WireSwarm@github.com/WireSwarm/MasqIP.git $branch
+                fetch --quiet https://WireSwarm@github.com/WireSwarm/MasqIP.git $BRANCH
             echo "After fetch"
-            git checkout $branch
+            git checkout $BRANCH
             git reset --hard FETCH_HEAD
             git clean -fd
 

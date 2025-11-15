@@ -28,25 +28,26 @@ jobs:
           envs: GITHUB_TOKEN,BRANCH  
           command: |
             set -ex
+
+            BRANCH="${{ github.ref_name }}"
+            GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+
             if [[ "$BRANCH" == "main" ]]; then
               path="/srv/customer/site/masqip.org"
             else
               path="/srv/customer/site/${BRANCH}.masqip.org"
             fi
 
-            cd $path
-            echo "La branche est ${BRANCH}" > branch.txt
-            echo "Fetch secured"
+            cd "$path"
+            echo "Branche = $BRANCH"
 
             GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
             git -c credential.helper="" \
-                -c http.extraHeader="Authorization: Bearer ${GITHUB_TOKEN}" \
+                -c http.extraHeader="Authorization: Bearer $GITHUB_TOKEN" \
                 -c http.version=HTTP/1.1 \
                 fetch --quiet https://WireSwarm@github.com/WireSwarm/MasqIP.git $BRANCH
 
-            echo "After fetch"
-
-            git checkout $BRANCH
+            git checkout "$BRANCH"
             git reset --hard FETCH_HEAD
             git clean -fd
 

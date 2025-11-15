@@ -22,7 +22,7 @@ jobs:
           user: ${{ secrets.SERVER_USER }}
           pass: ${{ secrets.SERVER_PASSWORD }}
           command:  |
-
+            set -e
             branch="${{ github.ref_name }}"
             if [[ "$branch" == "main" ]]; then
               path="/srv/customer/site/masqip.org"

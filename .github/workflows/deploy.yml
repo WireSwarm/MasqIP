@@ -23,13 +23,13 @@ jobs:
             set -ex
             BRANCH="${{ github.ref_name }}"
             GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-
+            touch sui1.text
             if [[ "$BRANCH" == "main" ]]; then
               path="/srv/customer/site/masqip.org"
             else
               path="/srv/customer/site/${BRANCH}.masqip.org"
             fi
-
+            touch $BRANCH.text
             cd "$path"
             touch sui2.text
             echo "--- FETCH START ---"

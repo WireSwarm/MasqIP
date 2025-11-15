@@ -19,37 +19,39 @@ jobs:
       contents: read
 
     steps:
-      - name: SSH via stable client
-        uses: fifsky/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          user: ${{ secrets.SERVER_USER }}
-          pass: ${{ secrets.SERVER_PASSWORD }}
-          envs: GITHUB_TOKEN,BRANCH  
-          command: |
-            set -ex
+      - name: Install sshpass
+        run: sudo apt-get install -y sshpass
 
-            BRANCH="${{ github.ref_name }}"
-            GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+      - name: Execute SSH script
+        run: |
+          sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
+            ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
+            "set -ex
 
-            if [[ "$BRANCH" == "main" ]]; then
-              path="/srv/customer/site/masqip.org"
+            BRANCH=\"${{ github.ref_name }}\"
+            GITHUB_TOKEN=\"${{ secrets.GITHUB_TOKEN }}\"
+
+            if [[ \"\$BRANCH\" == \"main\" ]]; then
+              path=\"/srv/customer/site/masqip.org\"
             else
-              path="/srv/customer/site/${BRANCH}.masqip.org"
+              path=\"/srv/customer/site/\${BRANCH}.masqip.org\"
             fi
 
-            cd "$path"
-            echo "Branche = $BRANCH"
+            cd \"\$path\" || { echo \"ERROR : folder not found : \$path\"; exit 1; }
+            echo \"Branche = \$BRANCH\"
 
+            echo \"--- FETCH START ---\"
             GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
-            git -c credential.helper="" \
-                -c http.extraHeader="Authorization: Bearer $GITHUB_TOKEN" \
+            git -c credential.helper=\"\" \
+                -c http.extraHeader=\"Authorization: Bearer \$GITHUB_TOKEN\" \
                 -c http.version=HTTP/1.1 \
-                fetch --quiet https://WireSwarm@github.com/WireSwarm/MasqIP.git $BRANCH
+                fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git \$BRANCH
+            echo \"--- FETCH DONE ---\"
 
-            git checkout "$BRANCH"
+            git checkout \$BRANCH
             git reset --hard FETCH_HEAD
             git clean -fd
 
             npm install --production
             npm run build
+            "

@@ -27,7 +27,7 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh -o StrictHostKeyChecking=no \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} \
             "set -ex
-
+             echo "test" > test.txt
             BRANCH=\"${{ github.ref_name }}\"
             GITHUB_TOKEN=\"${{ secrets.GITHUB_TOKEN }}\"
 

@@ -18,7 +18,8 @@ jobs:
       - name: Execute remote script via SSH
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -o StrictHostKeyChecking=no  ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<EOF 
+          ssh -o StrictHostKeyChecking=no  ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} <<-EOF 
+            touch suis.text
             echo "etape1" \> toto.text
             set -ex
             BRANCH="${{ github.ref_name }}"

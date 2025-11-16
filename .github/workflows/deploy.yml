@@ -27,4 +27,4 @@ jobs:
           echo "je suis un script"
           FOE
               chmod +x script.sh
-            EOF
+          EOF

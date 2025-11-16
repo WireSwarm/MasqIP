@@ -46,5 +46,4 @@ jobs:
             bash script.sh > sortie.txt &
             touch numero3camarche.txt
             touch numero4camarche.txt
-            touch numero5camarche.txt
             EOF

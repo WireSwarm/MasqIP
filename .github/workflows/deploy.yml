@@ -26,9 +26,10 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             touch tifes.txt
-   
             cat > script.sh << 'EOT'
-            echo "ustre"
+            #!/bin/bash
+            echo "je suis un script"
             EOT
+
             touch frite.txt
             EOF

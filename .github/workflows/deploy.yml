@@ -27,8 +27,8 @@ jobs:
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             touch tifes.txt
    
-            cat << 'EOL' > script.sh
+            cat > script.sh << 'EOT'
             echo "ustre"
-            EOL
+            EOT
             touch frite.txt
             EOF

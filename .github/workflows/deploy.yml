@@ -19,7 +19,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
-          continue-on-error: true
+        continue-on-error: true
 
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \

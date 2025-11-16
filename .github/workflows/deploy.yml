@@ -29,7 +29,7 @@ jobs:
             cat > script.sh << 'EOT'
             #!/bin/bash
             echo "je suis un script"
-          EOT
+            EOT
 
             touch frite.txt
           EOF

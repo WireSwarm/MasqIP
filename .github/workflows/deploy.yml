@@ -43,6 +43,6 @@ jobs:
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             touch numero2camarche.txt
             chmod +x script.sh
-            bash script.sh > sortie.txt
+            bash script.sh > sortie.txt &
             
             EOF

@@ -32,6 +32,7 @@ jobs:
 
           EOF
           
+
       - name: Execute remote script via SSH
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

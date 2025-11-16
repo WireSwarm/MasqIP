@@ -41,8 +41,8 @@ jobs:
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-          touch numero2camarche.txt
-          chmod +x script.sh
-          bash script.sh > sortie.txt &
-          touch numero3camarche.txt
-          EOF
+            touch numero2camarche.txt || true
+            chmod +x script.sh || true
+            bash script.sh > sortie.txt & || true
+            touch numero3camarche.txt || true
+            EOF

@@ -19,11 +19,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
+          continue-on-error: true
 
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            exit 0
           cat > script.sh << 'EOT'
           #!/bin/bash
           echo "je suis un script"

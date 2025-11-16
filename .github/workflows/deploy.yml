@@ -20,13 +20,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
         run: |
-          sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no  ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-          cat > script.sh << 'EOT'
+          SCRIPT_CONTENT=$(base64 << 'EOT'
           #!/bin/bash
           echo "je suis un script"
           EOT
+          )
 
+            sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
+            ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << EOF
+          echo "$SCRIPT_CONTENT" | base64 -d > script.sh
           chmod +x script.sh
           ./script.sh
           EOF

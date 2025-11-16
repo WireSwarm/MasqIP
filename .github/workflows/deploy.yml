@@ -24,12 +24,11 @@ jobs:
             echo "je suis un script"
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            touch tifes.txt
-            cat > script.sh << 'EOT'
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cat << 'EOT' > script.sh
             #!/bin/bash
             echo "je suis un script"
             EOT
 
             touch frite.txt
-          EOF
+            EOF

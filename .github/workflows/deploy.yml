@@ -45,5 +45,5 @@ jobs:
             touch numero2camarche.txt
             chmod +x script.sh
             bash script.sh > sortie.txt &
-            
+            touch numero3camarche.txt
             EOF

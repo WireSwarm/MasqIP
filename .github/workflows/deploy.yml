@@ -26,8 +26,11 @@ jobs:
           cat > script.sh << 'EOT'
           #!/bin/bash
           echo "je suis un script"
+
           EOT
+          
           EOF
+
         
       - name: Execute remote script via SSH
         env:

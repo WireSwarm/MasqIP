@@ -28,5 +28,6 @@ jobs:
           cat > script.sh << 'EOT'
           #!/bin/bash
           echo "je suis un script"
+          echo ">"
           EOT
           EOF

@@ -19,15 +19,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
-          REMOTE_SCRIPT: |
-            #!/bin/bash
-            echo "je suis un script"
+
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
           cat > script.sh << 'EOT'
           #!/bin/bash
           echo "je suis un script"
-          echo "\>"
           EOT
           EOF
+            - name: Execute remote script via SSH
+        
+      - name: Execute remote script via SSH
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            touch numero2camarche.txt
+            EOF

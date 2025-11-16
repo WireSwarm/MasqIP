@@ -25,7 +25,9 @@ jobs:
             cat <<'FOE' > script.sh
             #!/bin/bash
             echo "je suis un script"
+            redirection < \<
             FOE
               chmod +x script.sh
               ./script.sh >> sortie.txt 2>&1
+              ch
             EOF

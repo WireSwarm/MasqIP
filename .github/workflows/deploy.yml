@@ -24,7 +24,9 @@ jobs:
             echo "je suis un script"
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF' >birth.txt
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          cat > script.sh << 'EOT'
           #!/bin/bash
           echo "je suis un script"
+          EOT
           EOF

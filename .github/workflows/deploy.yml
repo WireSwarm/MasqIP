@@ -31,7 +31,7 @@ jobs:
           EOT
 
           EOF
-          
+
 
       - name: Execute remote script via SSH
         env:

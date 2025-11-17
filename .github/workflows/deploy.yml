@@ -26,7 +26,7 @@ jobs:
           sleep 5
           touch script2.executed
           echo "Hellow boy come here"
-          )&
+          )> sortie.log 2>&1 &
           disown
 
           EOF

@@ -22,6 +22,8 @@ jobs:
           #!/bin/bash
           echo "je suis un scripttt"
           touch script.executed
+          sleep 3
+          echo " après le sleep"
           
 
           EOF
@@ -42,4 +44,4 @@ jobs:
           envs: GITHUB_TOKEN,BRANCH
           command_timeout: 200m
           script: |
-            exec script.sh 
+            stdbuf -oL -eL bash ./script.sh

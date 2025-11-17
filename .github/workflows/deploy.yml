@@ -32,7 +32,7 @@ jobs:
 
 
           echo "--- FETCH START ---"
-          git fetch ${{ github.ref_name }}
+          git fetch
           echo "--- FETCH DONE ---"
 
           touch sui3.text

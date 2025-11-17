@@ -33,10 +33,7 @@ jobs:
           touch sui2.text
 
           echo "--- FETCH START ---"
-          git -c credential.helper="" \
-              -c http.extraHeader="Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-              -c http.version=HTTP/1.1 \
-              fetch https://github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
+          git fetch https://${{ secrets.GITHUB_TOKEN }}:x-oauth-basic@github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
           echo "--- FETCH DONE ---"
 
           touch sui3.text

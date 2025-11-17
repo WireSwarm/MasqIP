@@ -21,6 +21,7 @@ jobs:
           cat > script.sh << 'EOF'
           #!/bin/bash
           echo "je suis un scripttt"
+          touch script.executed
           EOF
       - name : Send with scp the script
         continue-on-error: true
@@ -35,4 +36,4 @@ jobs:
         continue-on-error: true
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} chmod +x ~/script.sh
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'chmod +x ~/script.sh;bach ~/script.sh'

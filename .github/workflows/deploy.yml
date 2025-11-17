@@ -19,12 +19,15 @@ jobs:
         
         run: |
           cat > script.sh << 'EOF'
+          (
           #!/bin/bash
           echo "je suis un scripttt"
           touch script.executed
           sleep 5
+          touch script2.executed
           echo "Hellow boy come here"
-          
+          )&
+          disown
 
           EOF
       - name : Send with scp the script

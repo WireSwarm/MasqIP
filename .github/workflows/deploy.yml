@@ -18,6 +18,7 @@ jobs:
       - name: Write script to file
         
         run: |
+          cat << 'EOF' > script.sh
           set -ex
 
           touch sui1.text
@@ -46,8 +47,6 @@ jobs:
 
           npm install --production
           npm run build
-
-
           EOF
       - name : Send with scp the script
         continue-on-error: true
@@ -66,4 +65,5 @@ jobs:
           envs: GITHUB_TOKEN,BRANCH
           command_timeout: 200m
           script: |
-            bash ./script.sh sleep 30
+            bash ./script.sh
+            sleep 30

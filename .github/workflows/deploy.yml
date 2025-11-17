@@ -30,13 +30,7 @@ jobs:
           fi
           cd $path
 
-          which git
-          git --version
-          type git
-          ls -l $(which git)
-          git remote -v
-          git branch -a
-          git --version
+
           echo "--- FETCH START ---"
           git fetch https://github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
           echo "--- FETCH DONE ---"

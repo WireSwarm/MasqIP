@@ -40,4 +40,4 @@ jobs:
         continue-on-error: true
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash script.sh & disown ;sleep 50'
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash -s' < ./script.sh

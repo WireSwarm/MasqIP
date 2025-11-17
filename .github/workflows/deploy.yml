@@ -18,31 +18,14 @@ jobs:
       - name: Write script to file
         
         run: |
-          cat << 'EOF' > script.sh
-          set -ex
+          cat > script.sh << 'EOF'
+          #!/bin/bash
+          echo "je suis un scripttt"
+          touch script.executed
+          sleep 5
+          echo "Hellow boy come here"
+          
 
-          touch sui1.text
-
-          if [[ "${{ github.ref_name }}" == "main" ]]; then
-            path="/srv/customer/site/masqip.org"
-          else
-            path="/srv/customer/site/${{ github.ref_name }}.masqip.org"
-          fi
-          cd $path
-
-
-          echo "--- FETCH START ---"
-          git fetch
-          echo "--- FETCH DONE ---"
-
-          touch sui3.text
-          git checkout "${{ github.ref_name }}"
-          git reset --hard FETCH_HEAD
-          git clean -fd
-          touch sui4.text
-
-          npm install --production
-          npm run build
           EOF
       - name : Send with scp the script
         continue-on-error: true
@@ -51,15 +34,14 @@ jobs:
           scp -o StrictHostKeyChecking=no script.sh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/script.sh
 
       - name: Execute the script on the server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          password: ${{ secrets.SERVER_PASSWORD }}
-          script_stop: false   # équivalent au comportement de -tt pour ne pas couper le script
-          request_pty: true
-          envs: GITHUB_TOKEN,BRANCH
-          command_timeout: 200m
-          script: |
-            bash ./script.sh
-            sleep 30
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        continue-on-error: true
+        run: |
+          sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            bash script.sh
+            sleep 50
+            exit
+          EOF

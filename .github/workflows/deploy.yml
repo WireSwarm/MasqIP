@@ -42,5 +42,4 @@ jobs:
           envs: GITHUB_TOKEN,BRANCH
           command_timeout: 200m
           script: |
-            script.sh > sortie.txt l 2>&1 &
-            disown
+            bash script.sh 

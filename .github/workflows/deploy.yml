@@ -23,7 +23,7 @@ jobs:
 
           set -ex
 
-          touch sujiton3.text
+          touch sujiton4.text
 
           if [[ "${{ github.ref_name }}" == "main" ]]; then
             path="/srv/customer/site/masqip.org"

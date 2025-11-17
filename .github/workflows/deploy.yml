@@ -33,7 +33,7 @@ jobs:
           touch sui2.text
 
           echo "--- FETCH START ---"
-          git fetch https://${{ secrets.GITHUB_TOKEN }}@github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
+          git fetch https://github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
           echo "--- FETCH DONE ---"
 
           touch sui3.text

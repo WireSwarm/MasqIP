@@ -36,7 +36,7 @@ jobs:
           git -c credential.helper="" \
               -c http.extraHeader="Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               -c http.version=HTTP/1.1 \
-              fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
+              fetch https://github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
           echo "--- FETCH DONE ---"
 
           touch sui3.text

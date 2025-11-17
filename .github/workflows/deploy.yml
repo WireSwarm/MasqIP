@@ -56,6 +56,7 @@ jobs:
           disown
 
           EOF
+          chmod +x script.sh
       - name : Send with scp the script
         continue-on-error: true
         run: |
@@ -70,6 +71,7 @@ jobs:
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << -EOF
+          chmod +x script.sh
 
           ./script.sh
           

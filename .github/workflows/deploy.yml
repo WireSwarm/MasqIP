@@ -28,6 +28,7 @@ jobs:
           else
             path="/srv/customer/site/${{ github.ref_name }}.masqip.org"
           fi
+          cd $path
 
           which git
           git --version

@@ -42,7 +42,6 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             touch erasmus.txt
-            chmod +x ~/script.sh
             touch erasmaaaas.txt
             ./script.sh &
             touch erdorosmus.txt

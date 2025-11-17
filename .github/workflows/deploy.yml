@@ -18,13 +18,35 @@ jobs:
       - name: Write script to file
         
         run: |
-          cat > script.sh << 'EOF'
-          #!/bin/bash
-          echo "je suis un scripttt"
-          touch script.executed
-          sleep 3
-          echo " après le sleep"
-          
+          set -ex
+
+          touch sui1.text
+
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            path="/srv/customer/site/masqip.org"
+          else
+            path="/srv/customer/site/${{ github.ref_name }}.masqip.org"
+          fi
+
+          cd "$path"
+          touch sui2.text
+
+          echo "--- FETCH START ---"
+          git -c credential.helper="" \
+              -c http.extraHeader="Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -c http.version=HTTP/1.1 \
+              fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
+          echo "--- FETCH DONE ---"
+
+          touch sui3.text
+          git checkout "${{ github.ref_name }}"
+          git reset --hard FETCH_HEAD
+          git clean -fd
+          touch sui4.text
+
+          npm install --production
+          npm run build
+
 
           EOF
       - name : Send with scp the script
@@ -44,4 +66,4 @@ jobs:
           envs: GITHUB_TOKEN,BRANCH
           command_timeout: 200m
           script: |
-            stdbuf -oL -eL bash ./script.sh
+            bash ./script.sh sleep 30

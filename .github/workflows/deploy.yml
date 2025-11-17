@@ -73,4 +73,7 @@ jobs:
 
           ./script.sh;          
 
+          sleep 5
+
+          
           EOF

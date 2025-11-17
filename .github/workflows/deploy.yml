@@ -45,10 +45,10 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
 
-           ./script.sh;
+          ./script.sh;
 
-           sleep 50;
+          sleep 50;
 
-           exit;
-           
+          exit;
+          
           EOF

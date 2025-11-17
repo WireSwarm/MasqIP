@@ -20,12 +20,41 @@ jobs:
         run: |
           cat > script.sh << 'EOF'
           (
-          #!/bin/bash
-          echo "je suis un scripttt"
-          touch script.executed
-          sleep 5
-          touch script2.executed
-          echo "Hellow boy come here"
+
+          set -ex
+
+          touch sui1.text
+
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            path="/srv/customer/site/masqip.org"
+          else
+            path="/srv/customer/site/${{ github.ref_name }}.masqip.org"
+          fi
+
+          cd "$path"
+          touch sui2.text
+
+          echo "--- FETCH START ---"
+          git -c credential.helper="" \
+              -c http.extraHeader="Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -c http.version=HTTP/1.1 \
+              fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
+          echo "--- FETCH DONE ---"
+
+          touch sui3.text
+          git checkout "${{ github.ref_name }}"
+          git reset --hard FETCH_HEAD
+          git clean -fd
+          touch sui4.text
+
+          npm install --production
+          npm run build
+
+
+
+
+
+
           )> sortie.log 2>&1 &
           disown
 
@@ -46,5 +75,5 @@ jobs:
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
 
           ./script.sh;          
-          
+
           EOF

@@ -19,9 +19,13 @@ jobs:
         
         run: |
           cat > script.sh << 'EOF'
+          {
+          
           #!/bin/bash
           echo "je suis un scripttt"
           touch script.executed
+          } >sortie.log
+
           EOF
       - name : Send with scp the script
         continue-on-error: true
@@ -36,4 +40,8 @@ jobs:
         continue-on-error: true
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "./script.sh | tee sortie.txt &"
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}<< EOF
+            chmod +x ~/script.sh
+            ./script.sh &
+            disown
+          EOF

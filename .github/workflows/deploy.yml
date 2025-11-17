@@ -41,11 +41,11 @@ jobs:
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            touch erasmus.txt
-            touch erasmaaaas.txt
-            ./script.sh &
-            touch erdorosmus.txt
-            disown
-            touch erderasicationdelespecehumaine.txt
+          touch erasmus.txt
+          touch erasmaaaas.txt
+          ./script.sh &
+          touch erdorosmus.txt
+          disown
+          touch erderasicationdelespecehumaine.txt
 
           EOF

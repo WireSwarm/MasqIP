@@ -15,25 +15,20 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install -y sshpass
 
-      - name: Execute remote script via SSH
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ github.ref_name }}
-        continue-on-error: true
-
+      - name: Write script to file
+        
         run: |
-          sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-          cat > script.sh << 'EOT'
+          cat > script.sh << 'EOF'
           #!/bin/bash
-          echo "je suis un script"
-
-          EOT
-
+          echo "je suis un scripttt"
           EOF
+      - name : Send with scp the script
+        continue-on-error: true
+        run: |
+          sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
+          scp -o StrictHostKeyChecking=no script.sh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/script.sh
 
-
-      - name: Fesse
+      - name: Execute the script on the server
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BRANCH: ${{ github.ref_name }}
@@ -41,8 +36,5 @@ jobs:
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            touch numero2camarche.txt || true
-            chmod +x script.sh || true
-            bash script.sh > sortie.txt & || true
-            touch numero3camarche.txt || true
-            EOF
+          touch numero2camarche.txt
+          EOF

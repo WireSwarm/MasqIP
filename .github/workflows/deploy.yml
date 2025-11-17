@@ -45,4 +45,29 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
           ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
            bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
+           bash script.sh
           EOF

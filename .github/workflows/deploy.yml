@@ -36,4 +36,6 @@ jobs:
         continue-on-error: true
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -t -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'chmod +x ~/script.sh;bash ~/script.sh; disown; sleep 3;'
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            bash ~/script.sh
+          EOF

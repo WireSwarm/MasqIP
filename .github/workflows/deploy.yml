@@ -42,5 +42,4 @@ jobs:
           envs: GITHUB_TOKEN,BRANCH
           command_timeout: 200m
           script: |
-            bash script.sh 
-            sleep 10
+            exec script.sh 

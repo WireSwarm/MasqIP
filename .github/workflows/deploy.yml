@@ -43,3 +43,4 @@ jobs:
           command_timeout: 200m
           script: |
             bash script.sh 
+            sleep 10

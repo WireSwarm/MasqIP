@@ -40,8 +40,4 @@ jobs:
         continue-on-error: true
         run: |
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" \
-          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            bash script.sh >/dev/null 2>&1 &
-            sleep 50
-            exit
-          EOF
+          ssh -tt -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} 'bash script.sh  >bababoy & disown ;sleep 50'

@@ -29,10 +29,10 @@ jobs:
             path="/srv/customer/site/${{ github.ref_name }}.masqip.org"
           fi
 
-          cd "$path"
-          touch sui2.text
-          pwd
-          ls -la
+          which git
+          git --version
+          type git
+          ls -l $(which git)
           git remote -v
           git branch -a
           git --version

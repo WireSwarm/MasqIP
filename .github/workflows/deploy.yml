@@ -23,7 +23,7 @@ jobs:
 
           set -ex
 
-          touch sujiton6.text
+          touch sujiton7.text
 
           if [[ "${{ github.ref_name }}" == "main" ]]; then
             path="/srv/customer/site/masqip.org"
@@ -72,8 +72,8 @@ jobs:
           sshpass -p "${{ secrets.SERVER_PASSWORD }}" ssh \
             -o StrictHostKeyChecking=no -T \
             ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            touch hehehehaw.txt
-            chmod +x script.sh
-            ./script.sh
-            sleep 5
-            EOF
+          touch hehehehaw.txt
+          chmod +x script.sh
+          ./script.sh
+          sleep 5
+          EOF

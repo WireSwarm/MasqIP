@@ -23,40 +23,28 @@ jobs:
 
           set -ex
 
-          touch sujiton9.text
-
           if [[ "${{ github.ref_name }}" == "main" ]]; then
             path="/srv/customer/site/masqip.org"
           else
             path="/srv/customer/site/${{ github.ref_name }}.masqip.org"
           fi
-
           cd "$path"
-          touch sui2.text
+
 
           echo "--- FETCH START ---"
           git fetch https://WireSwarm@github.com/WireSwarm/MasqIP.git ${{ github.ref_name }}
           echo "--- FETCH DONE ---"
-
-          touch sui3.text
           git checkout "${{ github.ref_name }}"
           git reset --hard FETCH_HEAD
           git clean -fd
-          touch sui4.text
 
           npm install --production
           npm run build
-
-
-
-
-
 
           )> sortie.log 2>&1 &
           disown
 
           EOF
-          chmod +x script.sh
       - name : Send with scp the script
         continue-on-error: true
         run: |
